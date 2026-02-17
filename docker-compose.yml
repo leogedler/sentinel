@@ -1,0 +1,72 @@
+version: '3.8'
+
+# Sentinel — Local Development Stack
+# Run: docker-compose up --build
+# API:      http://localhost:3000
+# Frontend: http://localhost:8080
+
+services:
+
+  # ── Backend API ──────────────────────────────────────────
+  api:
+    build:
+      context: ./sentinel-api
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - '3000:3000'
+    env_file:
+      - ./sentinel-api/.env
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./sentinel-api/src:/app/src
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Slack Bot (Socket Mode — no exposed port needed) ──────
+  slack-bot:
+    build:
+      context: ./sentinel-api
+      dockerfile: docker/Dockerfile.slack
+    env_file:
+      - ./sentinel-api/.env
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./sentinel-api/src:/app/src
+    depends_on:
+      - api
+      - mongo
+    restart: unless-stopped
+
+  # ── MongoDB (local dev only — production uses Atlas) ──────
+  mongo:
+    image: mongo:7
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Vue.js Frontend ───────────────────────────────────────
+  frontend:
+    build:
+      context: ./sentinel-frontend
+      dockerfile: docker/Dockerfile.frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:3000/api
+    ports:
+      - '8080:8080'
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
