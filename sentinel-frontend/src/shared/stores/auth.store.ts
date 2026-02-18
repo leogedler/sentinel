@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { authApi } from '../composables/useApi'
+import { authApi, api } from '../composables/useApi'
 
 export interface User {
   _id: string
@@ -32,7 +32,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchMe() {
     if (!token.value) return
     try {
-      const res = await authApi.get('/auth/me')
+      const res = await api.get('/auth/me')
       user.value = res.data
     } catch {
       clearAuth()

@@ -8,28 +8,31 @@ const MAX_HISTORY = 20;
 const MAX_TOOL_ITERATIONS = 10;
 
 export function registerMessageHandler(app: App) {
-  app.message(async ({ message, say, client }) => {
-    if (message.subtype || !('text' in message) || !message.text) return;
+  app.event('app_mention', async ({ event, say, context }) => {
+    // Strip the @mention from the beginning of the text
+    const channelId = event.channel;
+    const userText = event.text.replace(/<@[^>]+>\s*/g, '').trim();
 
-    const channelId = message.channel;
-    const userText = message.text;
-
-    // Ignore messages that are bot mentions handled elsewhere
-    if (userText.startsWith('/')) return;
+    if (!userText) return;
 
     try {
-      // Resolve workspace and user
-      const info = await client.auth.test();
-      const teamId = info.team_id;
+      // teamId is provided by Bolt context — no extra API call needed
+      const teamId = context.teamId;
 
       const sentinelUser = await User.findOne({ slackWorkspaceId: teamId });
-      if (!sentinelUser) return;
+      if (!sentinelUser) {
+        await say('This Slack workspace is not connected to Sentinel yet. Please complete the OAuth flow from the Sentinel dashboard.');
+        return;
+      }
 
       const sentinelClient = await Client.findOne({
         slackChannelId: channelId,
         userId: sentinelUser._id,
       });
-      if (!sentinelClient) return;
+      if (!sentinelClient) {
+        await say(`This channel is not linked to any Sentinel client. Go to the Sentinel dashboard and create or update a client with channel ID \`${channelId}\`.`);
+        return;
+      }
 
       // Load or create channel context
       let channelContext = await ChannelContext.findOne({ slackChannelId: channelId });
@@ -63,7 +66,7 @@ export function registerMessageHandler(app: App) {
       };
 
       let response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-sonnet-4-6',
         max_tokens: 2048,
         system: `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns. You have access to tools to fetch campaign data, run analysis skills, and more. The current client is "${sentinelClient.name}". Be concise and data-driven in your responses. Format responses for Slack (use *bold*, _italic_, and bullet points).`,
         tools,
@@ -105,7 +108,7 @@ export function registerMessageHandler(app: App) {
         messages.push({ role: 'user', content: toolResults });
 
         response = await anthropic.messages.create({
-          model: 'claude-sonnet-4-5-20250929',
+          model: 'claude-sonnet-4-6',
           max_tokens: 2048,
           system: `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns.`,
           tools,

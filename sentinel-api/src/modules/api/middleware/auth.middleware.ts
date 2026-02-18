@@ -12,12 +12,15 @@ export async function authMiddleware(
   next: NextFunction
 ): Promise<void> {
   const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
+  const queryToken = typeof req.query.token === 'string' ? req.query.token : undefined;
+  const rawToken = header?.startsWith('Bearer ') ? header.slice(7) : queryToken;
+
+  if (!rawToken) {
     res.status(401).json({ error: 'No token provided' });
     return;
   }
 
-  const token = header.slice(7);
+  const token = rawToken;
   try {
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error('JWT_SECRET not configured');

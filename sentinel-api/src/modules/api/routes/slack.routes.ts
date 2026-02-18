@@ -6,6 +6,6 @@ import { asyncHandler } from '../helpers';
 const router = Router();
 
 router.get('/install', authMiddleware, asyncHandler(slackInstall));
-router.get('/oauth/callback', authMiddleware, asyncHandler(slackOAuthCallback));
+router.get('/oauth/callback', asyncHandler(slackOAuthCallback));
 
 export default router;

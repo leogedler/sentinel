@@ -2,18 +2,29 @@ version: '3.8'
 
 # Sentinel — Local Development Stack
 # Run: docker-compose up --build
-# API:      http://localhost:3000
-# Frontend: http://localhost:8080
+# HTTPS: https://localhost  (nginx terminates TLS)
 
 services:
+
+  # ── nginx TLS Reverse Proxy ───────────────────────────────────
+  nginx-proxy:
+    build:
+      context: ./nginx-proxy
+    ports:
+      - '80:80'
+      - '443:443'
+    depends_on:
+      - api
+      - frontend
+    restart: unless-stopped
 
   # ── Backend API ──────────────────────────────────────────
   api:
     build:
       context: ./sentinel-api
       dockerfile: docker/Dockerfile.api
-    ports:
-      - '3000:3000'
+    expose:
+      - '3000'
     env_file:
       - ./sentinel-api/.env
     environment:
@@ -61,9 +72,9 @@ services:
       context: ./sentinel-frontend
       dockerfile: docker/Dockerfile.frontend
       args:
-        VITE_API_BASE_URL: http://localhost:3000/api
-    ports:
-      - '8080:8080'
+        VITE_API_BASE_URL: /api
+    expose:
+      - '8080'
     depends_on:
       - api
     restart: unless-stopped

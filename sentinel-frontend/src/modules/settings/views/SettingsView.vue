@@ -123,7 +123,7 @@ const saveMsg = ref('')
 const saveSuccess = ref(false)
 
 const BASE = import.meta.env.VITE_API_BASE_URL || '/api'
-const slackInstallUrl = computed(() => `${BASE}/slack/install`)
+const slackInstallUrl = computed(() => `${BASE}/slack/install?token=${encodeURIComponent(auth.token ?? '')}`)
 
 const timezones = [
   'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
