@@ -5,7 +5,13 @@
         <h1 class="page-title">Clients</h1>
         <p class="page-subtitle">Each client maps to a Slack channel and one or more campaigns.</p>
       </div>
-      <button class="btn btn-primary" @click="showCreate = true">+ New Client</button>
+      <div class="header-actions">
+        <button class="btn btn-secondary" :disabled="syncing" @click="syncFromWindsor">
+          <span v-if="syncing" class="spinner spinner-sm"></span>
+          Sync from Windsor
+        </button>
+        <button class="btn btn-primary" @click="showCreate = true">+ New Client</button>
+      </div>
     </div>
 
     <div v-if="loading" class="loading-state">
@@ -27,7 +33,7 @@
           <div class="client-avatar">{{ client.name.charAt(0).toUpperCase() }}</div>
           <div class="client-meta">
             <div class="client-name">{{ client.name }}</div>
-            <div class="client-channel">#{{ client.slackChannelId }}</div>
+            <div class="client-channel">{{ client.slackChannelId ? `#${client.slackChannelId}` : 'No channel linked' }}</div>
           </div>
           <span class="badge" :class="client.isActive ? 'badge-success' : 'badge-neutral'">
             {{ client.isActive ? 'Active' : 'Inactive' }}
@@ -106,7 +112,23 @@ const showCreate = ref(false)
 const editTarget = ref<Client | null>(null)
 const deleteTarget = ref<Client | null>(null)
 const deleting = ref(false)
+const syncing = ref(false)
 const notif = useNotification()
+
+async function syncFromWindsor() {
+  syncing.value = true
+  try {
+    const res = await api.post('/windsor/sync')
+    const { clientsCreated, clientsUpdated, campaignsCreated, campaignsUpdated } = res.data
+    notif.success(`Sync complete: ${clientsCreated} clients created, ${clientsUpdated} updated, ${campaignsCreated} campaigns created, ${campaignsUpdated} updated`)
+    loading.value = true
+    await fetchClients()
+  } catch (err) {
+    notif.error(extractError(err))
+  } finally {
+    syncing.value = false
+  }
+}
 
 async function fetchClients() {
   try {
@@ -157,6 +179,12 @@ onMounted(fetchClients)
 </script>
 
 <style scoped>
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .loading-state {
   display: flex;
   justify-content: center;

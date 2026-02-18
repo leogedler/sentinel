@@ -2,6 +2,7 @@ import { getCampaigns, compareCampaigns, UserContext } from './tools/campaigns.t
 import { getCampaignKpis, getHistoricalData } from './tools/kpis.tool';
 import { listSkills, runSkill } from './tools/skills.tool';
 import { getClientContext } from './tools/context.tool';
+import { syncClientsCampaignsTool } from './tools/sync.tool';
 
 // Tool definitions in Anthropic API format (used by Slack bot for Claude calls)
 export function getToolDefinitions() {
@@ -110,6 +111,14 @@ export function getToolDefinitions() {
         required: ['slackChannelId'],
       },
     },
+    {
+      name: 'sync_clients_and_campaigns',
+      description: 'Fetch all clients (ad accounts) and campaigns from Windsor.ai and sync them into Sentinel. Use when the user asks to import, fetch, or sync their campaigns.',
+      input_schema: {
+        type: 'object' as const,
+        properties: {},
+      },
+    },
   ];
 }
 
@@ -134,6 +143,8 @@ export async function executeToolCall(
       return listSkills(userContext);
     case 'get_client_context':
       return getClientContext(args as any, userContext);
+    case 'sync_clients_and_campaigns':
+      return syncClientsCampaignsTool(args as any, userContext);
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }

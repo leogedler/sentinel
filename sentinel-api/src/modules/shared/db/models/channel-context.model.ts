@@ -8,7 +8,7 @@ export interface IConversationMessage {
 
 export interface IChannelContext extends Document {
   slackChannelId: string;
-  clientId: Types.ObjectId;
+  clientId?: Types.ObjectId;
   conversationHistory: IConversationMessage[];
   updatedAt: Date;
 }
@@ -25,7 +25,7 @@ const conversationMessageSchema = new Schema<IConversationMessage>(
 const channelContextSchema = new Schema<IChannelContext>(
   {
     slackChannelId: { type: String, required: true, unique: true },
-    clientId: { type: Schema.Types.ObjectId, ref: 'Client', required: true },
+    clientId: { type: Schema.Types.ObjectId, ref: 'Client', required: false },
     conversationHistory: [conversationMessageSchema],
   },
   { timestamps: true }
