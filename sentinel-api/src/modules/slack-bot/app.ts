@@ -1,5 +1,6 @@
 import { App } from '@slack/bolt';
 import { logger } from '../shared/utils/logger';
+import { User } from '../shared/db/models';
 import { helpCommand } from './commands/help.command';
 import { reportCommand } from './commands/report.command';
 import { compareCommand } from './commands/compare.command';
@@ -11,10 +12,21 @@ let slackApp: App | null = null;
 
 export async function startSlackBot(): Promise<App> {
   slackApp = new App({
-    token: process.env.SLACK_BOT_TOKEN,
     signingSecret: process.env.SLACK_SIGNING_SECRET,
     socketMode: true,
     appToken: process.env.SLACK_APP_TOKEN,
+    // Multi-workspace: resolve the bot token for each incoming teamId
+    authorize: async ({ teamId }) => {
+      const user = await User.findOne({ 'slackWorkspaces.teamId': teamId });
+      const workspace = user?.slackWorkspaces.find((w) => w.teamId === teamId);
+      if (!workspace) {
+        throw new Error(`No Sentinel installation found for Slack workspace ${teamId}`);
+      }
+      return {
+        botToken: workspace.accessToken,
+        botUserId: workspace.botUserId,
+      };
+    },
   });
 
   // Register slash command with sub-routing
@@ -37,8 +49,7 @@ export async function startSlackBot(): Promise<App> {
       case 'skills': {
         await args.ack();
         const { listSkills } = await import('../mcp/tools/skills.tool');
-        const { User } = await import('../shared/db/models');
-        const user = await User.findOne({ slackWorkspaceId: args.command.team_id });
+        const user = await User.findOne({ 'slackWorkspaces.teamId': args.command.team_id });
         if (!user) {
           await args.respond('No Sentinel account linked to this workspace.');
           return;
@@ -63,7 +74,7 @@ export async function startSlackBot(): Promise<App> {
   registerActionHandlers(slackApp);
 
   await slackApp.start();
-  logger.info('Slack bot started in Socket Mode');
+  logger.info('Slack bot started in Socket Mode (multi-workspace)');
 
   return slackApp;
 }

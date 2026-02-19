@@ -2,13 +2,18 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi, api } from '../composables/useApi'
 
+export interface SlackWorkspace {
+  teamId: string
+  teamName: string
+}
+
 export interface User {
   _id: string
   email: string
   name: string
   timezone: string
-  windsorApiKey?: boolean
-  slackWorkspaceId?: string
+  hasWindsorApiKey?: boolean
+  slackWorkspaces: SlackWorkspace[]
 }
 
 export const useAuthStore = defineStore('auth', () => {

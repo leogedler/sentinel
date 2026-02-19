@@ -54,7 +54,7 @@ export function registerMessageHandler(app: App) {
       // teamId is provided by Bolt context — no extra API call needed
       const teamId = context.teamId;
 
-      const sentinelUser = await User.findOne({ slackWorkspaceId: teamId });
+      const sentinelUser = await User.findOne({ 'slackWorkspaces.teamId': teamId });
       if (!sentinelUser) {
         await say('This Slack workspace is not connected to Sentinel yet. Please complete the OAuth flow from the Sentinel dashboard.');
         return;
@@ -65,10 +65,10 @@ export function registerMessageHandler(app: App) {
         userId: sentinelUser._id,
       });
 
-      // Load or create channel context
-      let channelContext = await ChannelContext.findOne({ slackChannelId: channelId });
+      // Load or create channel context — scoped by both channelId and teamId
+      let channelContext = await ChannelContext.findOne({ slackChannelId: channelId, teamId });
       if (!channelContext) {
-        const contextData: Record<string, any> = { slackChannelId: channelId, conversationHistory: [] };
+        const contextData: Record<string, any> = { slackChannelId: channelId, teamId, conversationHistory: [] };
         if (sentinelClient) contextData.clientId = sentinelClient._id;
         channelContext = await ChannelContext.create(contextData);
       }
