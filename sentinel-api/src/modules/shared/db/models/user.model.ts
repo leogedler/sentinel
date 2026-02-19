@@ -2,19 +2,42 @@ import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcrypt';
 import { encrypt, decrypt } from '../../utils/encryption';
 
+export interface ISlackWorkspace {
+  teamId: string;
+  teamName: string;
+  accessToken: string; // encrypted at rest
+  botUserId?: string;
+}
+
 export interface IUser extends Document {
   email: string;
   passwordHash: string;
   name: string;
   windsorApiKey?: string;
-  slackWorkspaceId?: string;
-  slackUserId?: string;
-  slackAccessToken?: string;
+  slackWorkspaces: ISlackWorkspace[];
   timezone: string;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
+
+const slackWorkspaceSchema = new Schema<ISlackWorkspace>(
+  {
+    teamId: { type: String, required: true },
+    teamName: { type: String, required: true },
+    accessToken: {
+      type: String,
+      required: true,
+      set: (val: string) => (val ? encrypt(val) : val),
+      get: (val: string) => {
+        if (!val) return val;
+        try { return decrypt(val); } catch { return val; }
+      },
+    },
+    botUserId: { type: String },
+  },
+  { _id: false }
+);
 
 const userSchema = new Schema<IUser>(
   {
@@ -29,16 +52,7 @@ const userSchema = new Schema<IUser>(
         try { return decrypt(val); } catch { return val; }
       },
     },
-    slackWorkspaceId: { type: String },
-    slackUserId: { type: String },
-    slackAccessToken: {
-      type: String,
-      set: (val: string) => (val ? encrypt(val) : val),
-      get: (val: string) => {
-        if (!val) return val;
-        try { return decrypt(val); } catch { return val; }
-      },
-    },
+    slackWorkspaces: { type: [slackWorkspaceSchema], default: [] },
     timezone: { type: String, default: 'UTC' },
   },
   { timestamps: true, toJSON: { getters: true }, toObject: { getters: true } }

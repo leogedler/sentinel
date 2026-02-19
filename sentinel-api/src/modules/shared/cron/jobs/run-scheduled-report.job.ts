@@ -1,5 +1,5 @@
 import Agenda, { Job } from 'agenda';
-import { Schedule, Client, User } from '../../db/models';
+import { Schedule, Client, User, ChannelContext } from '../../db/models';
 import { runSkill } from '../../../mcp/tools/skills.tool';
 import { getSlackWebClient } from '../../slack/slack-client';
 import { logger } from '../../utils/logger';
@@ -27,13 +27,19 @@ export function defineRunScheduledReportJob(agenda: Agenda) {
       );
 
       // Post to Slack
-      const slackClient = getSlackWebClient();
-      if (slackClient && client.slackChannelId) {
-        await slackClient.chat.postMessage({
-          token: user.slackAccessToken || process.env.SLACK_BOT_TOKEN,
-          channel: client.slackChannelId,
-          text: result.analysis,
-        });
+      if (client.slackChannelId) {
+        const channelCtx = await ChannelContext.findOne({ slackChannelId: client.slackChannelId });
+        const workspace = channelCtx
+          ? user.slackWorkspaces.find((w) => w.teamId === channelCtx.teamId)
+          : user.slackWorkspaces[0];
+        const slackClient = getSlackWebClient();
+        if (slackClient && workspace) {
+          await slackClient.chat.postMessage({
+            token: workspace.accessToken,
+            channel: client.slackChannelId,
+            text: result.analysis,
+          });
+        }
       }
 
       // Update last run

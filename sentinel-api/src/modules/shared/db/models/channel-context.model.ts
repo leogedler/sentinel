@@ -8,6 +8,7 @@ export interface IConversationMessage {
 
 export interface IChannelContext extends Document {
   slackChannelId: string;
+  teamId: string;
   clientId?: Types.ObjectId;
   conversationHistory: IConversationMessage[];
   updatedAt: Date;
@@ -24,12 +25,16 @@ const conversationMessageSchema = new Schema<IConversationMessage>(
 
 const channelContextSchema = new Schema<IChannelContext>(
   {
-    slackChannelId: { type: String, required: true, unique: true },
+    slackChannelId: { type: String, required: true },
+    teamId: { type: String, required: true },
     clientId: { type: Schema.Types.ObjectId, ref: 'Client', required: false },
     conversationHistory: [conversationMessageSchema],
   },
   { timestamps: true }
 );
+
+// Compound unique index: one conversation history per channel per workspace
+channelContextSchema.index({ slackChannelId: 1, teamId: 1 }, { unique: true });
 
 export const ChannelContext = mongoose.model<IChannelContext>(
   'ChannelContext',

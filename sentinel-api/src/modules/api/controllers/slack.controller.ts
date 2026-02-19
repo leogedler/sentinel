@@ -36,6 +36,8 @@ export async function slackOAuthCallback(req: AuthRequest, res: Response): Promi
   const clientSecret = process.env.SLACK_CLIENT_SECRET;
   if (!clientId || !clientSecret) throw new AppError(500, 'Slack OAuth not configured');
 
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+
   try {
     const response = await axios.post('https://slack.com/api/oauth.v2.access', null, {
       params: {
@@ -50,16 +52,48 @@ export async function slackOAuthCallback(req: AuthRequest, res: Response): Promi
       throw new AppError(400, `Slack OAuth error: ${response.data.error}`);
     }
 
-    const { access_token, team } = response.data;
-    user.slackAccessToken = access_token;
-    user.slackWorkspaceId = team.id;
+    const { access_token, team, bot_user_id } = response.data;
+
+    // Upsert: update if this workspace is already connected, otherwise add it
+    const existingIndex = user.slackWorkspaces.findIndex((w) => w.teamId === team.id);
+    if (existingIndex >= 0) {
+      user.slackWorkspaces[existingIndex] = {
+        teamId: team.id,
+        teamName: team.name,
+        accessToken: access_token,
+        botUserId: bot_user_id,
+      };
+    } else {
+      user.slackWorkspaces.push({
+        teamId: team.id,
+        teamName: team.name,
+        accessToken: access_token,
+        botUserId: bot_user_id,
+      });
+    }
     await user.save();
 
-    logger.info(`Slack workspace ${team.name} connected for user ${user.email}`);
-    res.json({ message: 'Slack workspace connected', workspace: team.name });
+    logger.info(`Slack workspace "${team.name}" connected for user ${user.email}`);
+    res.redirect(`${frontendUrl}/settings?slack=connected`);
   } catch (error) {
     if (error instanceof AppError) throw error;
     logger.error('Slack OAuth error:', error);
-    throw new AppError(500, 'Failed to complete Slack OAuth');
+    res.redirect(`${frontendUrl}/settings?slack=error`);
   }
+}
+
+export async function disconnectSlackWorkspace(req: AuthRequest, res: Response): Promise<void> {
+  const { teamId } = req.params;
+  const user = req.user!;
+
+  const before = user.slackWorkspaces.length;
+  user.slackWorkspaces = user.slackWorkspaces.filter((w) => w.teamId !== teamId);
+
+  if (user.slackWorkspaces.length === before) {
+    throw new AppError(404, 'Workspace not found');
+  }
+
+  await user.save();
+  logger.info(`Slack workspace ${teamId} disconnected for user ${user.email}`);
+  res.json({ message: 'Workspace disconnected' });
 }

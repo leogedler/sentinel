@@ -64,7 +64,10 @@ export async function getMe(req: AuthRequest, res: Response): Promise<void> {
     email: user.email,
     name: user.name,
     timezone: user.timezone,
-    slackWorkspaceId: user.slackWorkspaceId,
+    slackWorkspaces: user.slackWorkspaces.map((w) => ({
+      teamId: w.teamId,
+      teamName: w.teamName,
+    })),
     hasWindsorApiKey: !!user.windsorApiKey,
   });
 }

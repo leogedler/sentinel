@@ -10,9 +10,12 @@ const updateSettingsSchema = z.object({
 export async function getSettings(req: AuthRequest, res: Response): Promise<void> {
   const user = req.user!;
   res.json({
-    windsorApiKey: user.windsorApiKey ? '••••••••' : null,
+    hasWindsorKey: !!user.windsorApiKey,
     timezone: user.timezone,
-    slackWorkspaceId: user.slackWorkspaceId,
+    slackWorkspaces: user.slackWorkspaces.map((w) => ({
+      teamId: w.teamId,
+      teamName: w.teamName,
+    })),
   });
 }
 

@@ -68,25 +68,53 @@
       <div class="card">
         <div class="card-header">
           <h2 class="card-title">Slack Integration</h2>
-          <span v-if="auth.user?.slackWorkspaceId" class="badge badge-success">Connected</span>
+          <span v-if="auth.user?.slackWorkspaces?.length" class="badge badge-success">
+            {{ auth.user.slackWorkspaces.length }} workspace{{ auth.user.slackWorkspaces.length > 1 ? 's' : '' }} connected
+          </span>
           <span v-else class="badge badge-neutral">Not connected</span>
         </div>
         <p class="settings-description">
-          Connect your Slack workspace to enable the Sentinel bot and receive reports directly in your channels.
+          Connect one or more Slack workspaces to enable the Sentinel bot and receive reports directly in your channels.
         </p>
+
+        <!-- Connected workspaces list -->
+        <div v-if="auth.user?.slackWorkspaces?.length" class="workspace-list">
+          <div
+            v-for="ws in auth.user.slackWorkspaces"
+            :key="ws.teamId"
+            class="workspace-row"
+          >
+            <div class="workspace-info">
+              <svg width="16" height="16" viewBox="0 0 122.8 122.8" style="flex-shrink:0">
+                <path d="M25.8 77.6c0 7.1-5.8 12.9-12.9 12.9S0 84.7 0 77.6s5.8-12.9 12.9-12.9h12.9v12.9zm6.5 0c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9v32.3c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V77.6z" fill="#e01e5a"/>
+                <path d="M45.2 25.8c-7.1 0-12.9-5.8-12.9-12.9S38.1 0 45.2 0s12.9 5.8 12.9 12.9v12.9H45.2zm0 6.5c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H12.9C5.8 58.1 0 52.3 0 45.2s5.8-12.9 12.9-12.9h32.3z" fill="#36c5f0"/>
+                <path d="M97 45.2c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9-5.8 12.9-12.9 12.9H97V45.2zm-6.5 0c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V12.9C64.7 5.8 70.5 0 77.6 0s12.9 5.8 12.9 12.9v32.3z" fill="#2eb67d"/>
+                <path d="M77.6 97c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9-12.9-5.8-12.9-12.9V97h12.9zm0-6.5c-7.1 0-12.9-5.8-12.9-12.9s5.8-12.9 12.9-12.9h32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H77.6z" fill="#ecb22e"/>
+              </svg>
+              <span class="workspace-name">{{ ws.teamName }}</span>
+              <span class="workspace-id">{{ ws.teamId }}</span>
+            </div>
+            <button
+              class="btn btn-ghost btn-sm icon-btn-danger"
+              :disabled="disconnecting === ws.teamId"
+              @click="disconnectWorkspace(ws.teamId)"
+            >
+              <span v-if="disconnecting === ws.teamId" class="spinner spinner-sm"></span>
+              <span v-else>Disconnect</span>
+            </button>
+          </div>
+        </div>
+
         <div style="margin-top:16px">
-          <a :href="slackInstallUrl" class="btn btn-secondary" v-if="!auth.user?.slackWorkspaceId">
+          <a :href="slackInstallUrl" class="btn btn-secondary">
             <svg width="16" height="16" viewBox="0 0 122.8 122.8" style="margin-right:6px">
               <path d="M25.8 77.6c0 7.1-5.8 12.9-12.9 12.9S0 84.7 0 77.6s5.8-12.9 12.9-12.9h12.9v12.9zm6.5 0c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9v32.3c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V77.6z" fill="#e01e5a"/>
               <path d="M45.2 25.8c-7.1 0-12.9-5.8-12.9-12.9S38.1 0 45.2 0s12.9 5.8 12.9 12.9v12.9H45.2zm0 6.5c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H12.9C5.8 58.1 0 52.3 0 45.2s5.8-12.9 12.9-12.9h32.3z" fill="#36c5f0"/>
               <path d="M97 45.2c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9-5.8 12.9-12.9 12.9H97V45.2zm-6.5 0c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V12.9C64.7 5.8 70.5 0 77.6 0s12.9 5.8 12.9 12.9v32.3z" fill="#2eb67d"/>
               <path d="M77.6 97c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9-12.9-5.8-12.9-12.9V97h12.9zm0-6.5c-7.1 0-12.9-5.8-12.9-12.9s5.8-12.9 12.9-12.9h32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H77.6z" fill="#ecb22e"/>
             </svg>
-            Connect Slack
+            {{ auth.user?.slackWorkspaces?.length ? 'Add another workspace' : 'Connect Slack' }}
           </a>
-          <div v-else class="alert alert-success" style="display:inline-flex;padding:8px 14px">
-            &#10003; Workspace connected (ID: {{ auth.user?.slackWorkspaceId }})
-          </div>
         </div>
       </div>
 
@@ -106,8 +134,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { api, extractError } from '@/shared/composables/useApi'
 import { useAuthStore } from '@/shared/stores/auth.store'
+import { useNotification } from '@/shared/composables/useNotification'
 
 interface Settings {
   hasWindsorKey: boolean
@@ -115,8 +145,11 @@ interface Settings {
 }
 
 const auth = useAuthStore()
+const route = useRoute()
+const notif = useNotification()
 const loading = ref(true)
 const saving = ref(false)
+const disconnecting = ref<string | null>(null)
 const settings = ref<Settings | null>(null)
 const showApiKey = ref(false)
 const saveMsg = ref('')
@@ -149,6 +182,19 @@ async function fetchSettings() {
   }
 }
 
+async function disconnectWorkspace(teamId: string) {
+  disconnecting.value = teamId
+  try {
+    await api.delete(`/slack/workspace/${teamId}`)
+    await auth.fetchMe()
+    notif.success('Workspace disconnected')
+  } catch (err) {
+    notif.error(extractError(err))
+  } finally {
+    disconnecting.value = null
+  }
+}
+
 async function saveSettings() {
   saving.value = true
   saveMsg.value = ''
@@ -172,7 +218,16 @@ async function saveSettings() {
   }
 }
 
-onMounted(fetchSettings)
+onMounted(async () => {
+  await fetchSettings()
+  // Handle redirect back from Slack OAuth
+  if (route.query.slack === 'connected') {
+    await auth.fetchMe()
+    notif.success('Slack workspace connected successfully!')
+  } else if (route.query.slack === 'error') {
+    notif.error('Failed to connect Slack workspace. Please try again.')
+  }
+})
 </script>
 
 <style scoped>
@@ -229,6 +284,40 @@ onMounted(fetchSettings)
 
 .input-row .form-input {
   flex: 1;
+}
+
+.workspace-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.workspace-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary, #f9f9f9);
+}
+
+.workspace-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.workspace-id {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .settings-actions {

@@ -24,7 +24,7 @@ export const scheduleCommand: Middleware<SlackCommandMiddlewareArgs> = async ({ 
   }
 
   try {
-    const user = await User.findOne({ slackWorkspaceId: command.team_id });
+    const user = await User.findOne({ 'slackWorkspaces.teamId': command.team_id });
     if (!user) {
       await respond('No Sentinel account linked to this workspace.');
       return;
