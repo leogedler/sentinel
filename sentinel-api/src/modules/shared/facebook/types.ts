@@ -13,9 +13,9 @@ export interface WindsorDataRow {
   clicks: number;
   ctr: number;
   cpc: number;
-  conversions: number;
+  actions_offsite_conversion_fb_pixel_purchase: number;
   conversion_rate: number;
-  roas: number;
+  website_purchase_roas_offsite_conversion_fb_pixel_purchase: number;
   reach: number;
   frequency: number;
 }

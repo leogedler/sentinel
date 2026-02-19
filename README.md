@@ -37,8 +37,8 @@ docker-compose up --build
 Services:
 | Service | URL | Description |
 |---|---|---|
-| Frontend | http://localhost:8080 | Vue.js web app |
-| API | http://localhost:3000 | REST API |
+| Frontend | http://localhost | Vue.js web app |
+| API | http://localhost | REST API |
 | MongoDB | localhost:27017 | Local database |
 
 ### 3. Seed default skills (first run)
@@ -49,13 +49,13 @@ docker-compose exec api npm run seed
 
 ### 4. Open the app
 
-Navigate to http://localhost:8080, register an account, and follow the setup flow.
+Navigate to http://localhost, register an account, and follow the setup flow.
 
 ---
 
 ## User Setup Flow
 
-1. **Register** at http://localhost:8080/register
+1. **Register** at http://localhost/register
 2. **Add Windsor.ai key** in Settings → Windsor.ai Integration
 3. **Connect Slack** in Settings → Slack Integration
 4. **Create a client** in Clients → New Client (use your Slack channel ID)

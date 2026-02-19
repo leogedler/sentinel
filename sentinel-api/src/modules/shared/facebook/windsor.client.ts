@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 import { WindsorDataRow, WindsorCampaignSummary, CampaignKPIs, DateRange, HistoricalDataPoint } from './types';
 
 const BASE_URL = 'https://connectors.windsor.ai/all';
-const FIELDS = 'account_id,account_name,date,campaign,campaign_id,spend,impressions,clicks,ctr,cpc,conversions,conversion_rate,roas,reach,frequency';
+const FIELDS = 'account_id,account_name,date,campaign,campaign_id,spend,impressions,clicks,ctr,cpc,actions_offsite_conversion_fb_pixel_purchase,conversion_rate,website_purchase_roas_offsite_conversion_fb_pixel_purchase,reach,frequency';
 const MAX_RETRIES = 3;
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
@@ -66,10 +66,11 @@ function aggregateKPIs(rows: WindsorDataRow[]): CampaignKPIs {
       spend: acc.spend + (row.spend || 0),
       impressions: acc.impressions + (row.impressions || 0),
       clicks: acc.clicks + (row.clicks || 0),
-      conversions: acc.conversions + (row.conversions || 0),
+      conversions: acc.conversions + (row.actions_offsite_conversion_fb_pixel_purchase || 0),
       reach: acc.reach + (row.reach || 0),
+      roas: acc.roas + (row.website_purchase_roas_offsite_conversion_fb_pixel_purchase || 0),
     }),
-    { spend: 0, impressions: 0, clicks: 0, conversions: 0, reach: 0 }
+    { spend: 0, impressions: 0, clicks: 0, conversions: 0, reach: 0, roas: 0 }
   );
 
   return {
@@ -77,7 +78,6 @@ function aggregateKPIs(rows: WindsorDataRow[]): CampaignKPIs {
     ctr: totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0,
     cpc: totals.clicks > 0 ? totals.spend / totals.clicks : 0,
     conversionRate: totals.clicks > 0 ? (totals.conversions / totals.clicks) * 100 : 0,
-    roas: totals.spend > 0 ? (totals.conversions * (rows[0].roas || 0)) / rows.length : 0,
     frequency: totals.reach > 0 ? totals.impressions / totals.reach : 0,
   };
 }
@@ -92,7 +92,7 @@ export async function fetchCampaignData(
     params.date_from = dateRange.start;
     params.date_to = dateRange.end;
   } else {
-    params.date_preset = 'last_7d';
+    params.date_preset = 'last_30d';
   }
 
   const rows = await fetchWithRetry(apiKey, params);
@@ -101,7 +101,7 @@ export async function fetchCampaignData(
 }
 
 export async function fetchAllCampaigns(apiKey: string): Promise<WindsorCampaignSummary[]> {
-  const rows = await fetchWithRetry(apiKey, { date_preset: 'last_7d' });
+  const rows = await fetchWithRetry(apiKey, { date_preset: 'last_30d' });
 
   const seen = new Set<string>();
   const summaries: WindsorCampaignSummary[] = [];
