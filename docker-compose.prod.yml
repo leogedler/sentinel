@@ -23,6 +23,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      ENABLE_SLACK_BOT: 'false'
+      ENABLE_AGENDA: 'true'
       MONGODB_URI: ${MONGODB_URI}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY: ${JWT_EXPIRY:-24h}
@@ -39,6 +41,8 @@ services:
     image: gcr.io/${GCP_PROJECT}/sentinel-slack:${IMAGE_TAG:-latest}
     environment:
       NODE_ENV: production
+      ENABLE_SLACK_BOT: 'true'
+      ENABLE_AGENDA: 'false'
       MONGODB_URI: ${MONGODB_URI}
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}

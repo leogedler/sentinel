@@ -9,6 +9,7 @@ import skillsRoutes from './routes/skills.routes';
 import settingsRoutes from './routes/settings.routes';
 import schedulesRoutes from './routes/schedules.routes';
 import slackRoutes from './routes/slack.routes';
+import windsorRoutes from './routes/windsor.routes';
 
 export function createApp(): express.Express {
   const app = express();
@@ -31,6 +32,7 @@ export function createApp(): express.Express {
   app.use('/api/settings', settingsRoutes);
   app.use('/api/clients/:clientId/schedules', schedulesRoutes);
   app.use('/api/slack', slackRoutes);
+  app.use('/api/windsor', windsorRoutes);
 
   // Error handler
   app.use(errorMiddleware);

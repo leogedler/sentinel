@@ -3,6 +3,8 @@ import { logger } from '../utils/logger';
 import { defineFetchCampaignDataJob } from './jobs/fetch-campaign-data.job';
 import { defineRunScheduledReportJob } from './jobs/run-scheduled-report.job';
 import { defineCleanupOldDataJob } from './jobs/cleanup-old-data.job';
+import { defineDispatchFetchAllCampaignsJob } from './jobs/dispatch-fetch-all-campaigns.job';
+import { defineDispatchRunScheduledReportsJob } from './jobs/dispatch-run-scheduled-reports.job';
 
 let agenda: Agenda | null = null;
 
@@ -19,11 +21,15 @@ export async function startAgenda(): Promise<Agenda> {
   defineFetchCampaignDataJob(agenda);
   defineRunScheduledReportJob(agenda);
   defineCleanupOldDataJob(agenda);
+  defineDispatchFetchAllCampaignsJob(agenda);
+  defineDispatchRunScheduledReportsJob(agenda);
 
   await agenda.start();
 
-  // Schedule recurring cleanup job
+  // Global recurring jobs
   await agenda.every('0 0 * * *', 'cleanup_old_data');
+  await agenda.every('0 * * * *', 'dispatch_fetch_all_campaigns');   // hourly
+  await agenda.every('* * * * *', 'dispatch_run_scheduled_reports'); // every minute
 
   logger.info('Agenda scheduler started');
   return agenda;

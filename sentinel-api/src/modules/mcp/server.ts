@@ -2,13 +2,35 @@ import { getCampaigns, compareCampaigns, UserContext } from './tools/campaigns.t
 import { getCampaignKpis, getHistoricalData } from './tools/kpis.tool';
 import { listSkills, runSkill } from './tools/skills.tool';
 import { getClientContext } from './tools/context.tool';
+import { syncClientsCampaignsTool } from './tools/sync.tool';
+import { createScheduleTool } from './tools/schedule.tool';
+import { searchClientsCampaigns } from './tools/search.tool';
 
 // Tool definitions in Anthropic API format (used by Slack bot for Claude calls)
 export function getToolDefinitions() {
   return [
     {
+      name: 'search_clients_campaigns',
+      description: 'Search for clients and/or campaigns by name (partial, case-insensitive) or exact MongoDB ID. ALWAYS call this first when the user refers to a client or campaign by name and you do not already have its ID. Returns matching IDs you can pass to other tools.',
+      input_schema: {
+        type: 'object' as const,
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Name substring to search for, or exact MongoDB ID',
+          },
+          type: {
+            type: 'string',
+            enum: ['client', 'campaign', 'both'],
+            description: 'Limit results to clients, campaigns, or both (default: both)',
+          },
+        },
+        required: ['query'],
+      },
+    },
+    {
       name: 'get_campaigns',
-      description: 'Retrieve all campaigns for a given client',
+      description: 'Retrieve all campaigns for a given client. Use search_clients_campaigns first if you only have a client name.',
       input_schema: {
         type: 'object' as const,
         properties: {
@@ -19,7 +41,7 @@ export function getToolDefinitions() {
     },
     {
       name: 'get_campaign_kpis',
-      description: 'Fetch current KPIs for a campaign from Windsor.ai',
+      description: 'Fetch current KPIs for a campaign from Windsor.ai. Use search_clients_campaigns first if you only have a campaign name.',
       input_schema: {
         type: 'object' as const,
         properties: {
@@ -37,7 +59,7 @@ export function getToolDefinitions() {
     },
     {
       name: 'compare_campaigns',
-      description: 'Compare KPIs across multiple campaigns',
+      description: 'Compare KPIs across multiple campaigns. Use search_clients_campaigns first to resolve campaign names to IDs.',
       input_schema: {
         type: 'object' as const,
         properties: {
@@ -80,7 +102,7 @@ export function getToolDefinitions() {
     },
     {
       name: 'run_skill',
-      description: 'Execute a Skill (prompt template) with campaign data as context',
+      description: 'Execute a Skill (prompt template) with campaign data as context. Use search_clients_campaigns to resolve campaign names, and list_skills to resolve skill names.',
       input_schema: {
         type: 'object' as const,
         properties: {
@@ -110,6 +132,42 @@ export function getToolDefinitions() {
         required: ['slackChannelId'],
       },
     },
+    {
+      name: 'create_schedule',
+      description: 'Set up a recurring report for one or more campaigns. Use when the user asks to schedule, automate, or set up recurring reports. First call get_campaigns to resolve campaign IDs if needed, and list_skills to resolve a skill ID if the user specifies one.',
+      input_schema: {
+        type: 'object' as const,
+        properties: {
+          campaignIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'IDs of the campaigns to schedule reports for',
+          },
+          frequency: {
+            type: 'string',
+            enum: ['daily', 'weekly'],
+            description: 'How often to run the report',
+          },
+          time: {
+            type: 'string',
+            description: 'Time to run in HH:MM format (UTC), e.g. "09:00"',
+          },
+          skillId: {
+            type: 'string',
+            description: 'ID of the Skill to use. Omit to use the default Daily Performance Summary.',
+          },
+        },
+        required: ['campaignIds', 'frequency', 'time'],
+      },
+    },
+    {
+      name: 'sync_clients_and_campaigns',
+      description: 'Fetch all clients (ad accounts) and campaigns from Windsor.ai and sync them into Sentinel. Use when the user asks to import, fetch, or sync their campaigns.',
+      input_schema: {
+        type: 'object' as const,
+        properties: {},
+      },
+    },
   ];
 }
 
@@ -120,6 +178,8 @@ export async function executeToolCall(
   userContext: UserContext
 ): Promise<any> {
   switch (toolName) {
+    case 'search_clients_campaigns':
+      return searchClientsCampaigns(args as any, userContext);
     case 'get_campaigns':
       return getCampaigns(args as any, userContext);
     case 'get_campaign_kpis':
@@ -134,6 +194,10 @@ export async function executeToolCall(
       return listSkills(userContext);
     case 'get_client_context':
       return getClientContext(args as any, userContext);
+    case 'create_schedule':
+      return createScheduleTool(args as any, userContext);
+    case 'sync_clients_and_campaigns':
+      return syncClientsCampaignsTool(args as any, userContext);
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }

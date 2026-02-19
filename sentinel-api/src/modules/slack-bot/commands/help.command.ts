@@ -28,7 +28,14 @@ export const helpCommand: Middleware<SlackCommandMiddlewareArgs> = async ({ ack,
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: 'You can also send natural language messages in any client channel, and I\'ll analyze your campaigns using AI.',
+          text: 'You can also send natural language messages in any client channel, and I\'ll analyze your campaigns using AI.\nFor example: _"Schedule a daily report at 9am for all campaigns"_ or _"Set up weekly reports every Monday at 8:30 for the Summer campaign"_.',
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Windsor.ai Sync*\nMention `@sentinel` and ask it to _"fetch all clients and campaigns"_ or _"sync from Windsor"_ in any channel to automatically import all your Ad Accounts (as Clients) and Campaigns from Windsor.ai. You can also use the *Sync from Windsor* button in the Sentinel dashboard.',
         },
       },
     ],

@@ -1,9 +1,9 @@
 import axios from 'axios';
 import { logger } from '../utils/logger';
-import { WindsorDataRow, CampaignKPIs, DateRange, HistoricalDataPoint } from './types';
+import { WindsorDataRow, WindsorCampaignSummary, CampaignKPIs, DateRange, HistoricalDataPoint } from './types';
 
 const BASE_URL = 'https://connectors.windsor.ai/all';
-const FIELDS = 'date,campaign,campaign_id,spend,impressions,clicks,ctr,cpc,conversions,conversion_rate,roas,reach,frequency';
+const FIELDS = 'account_id,account_name,date,campaign,campaign_id,spend,impressions,clicks,ctr,cpc,conversions,conversion_rate,roas,reach,frequency';
 const MAX_RETRIES = 3;
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
@@ -98,6 +98,26 @@ export async function fetchCampaignData(
   const rows = await fetchWithRetry(apiKey, params);
   const filtered = rows.filter((r) => r.campaign_id === facebookCampaignId);
   return aggregateKPIs(filtered);
+}
+
+export async function fetchAllCampaigns(apiKey: string): Promise<WindsorCampaignSummary[]> {
+  const rows = await fetchWithRetry(apiKey, { date_preset: 'last_7d' });
+
+  const seen = new Set<string>();
+  const summaries: WindsorCampaignSummary[] = [];
+
+  for (const row of rows) {
+    if (!row.campaign_id || seen.has(row.campaign_id)) continue;
+    seen.add(row.campaign_id);
+    summaries.push({
+      campaign_id: row.campaign_id,
+      campaign_name: row.campaign || row.campaign_id,
+      account_id: row.account_id || 'unknown',
+      account_name: row.account_name || 'unknown',
+    });
+  }
+
+  return summaries;
 }
 
 export async function fetchCampaignHistory(

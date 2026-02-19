@@ -1,7 +1,7 @@
 import Agenda, { Job } from 'agenda';
 import { Schedule, Client, User } from '../../db/models';
 import { runSkill } from '../../../mcp/tools/skills.tool';
-import { getSlackApp } from '../../../slack-bot/app';
+import { getSlackWebClient } from '../../slack/slack-client';
 import { logger } from '../../utils/logger';
 
 export function defineRunScheduledReportJob(agenda: Agenda) {
@@ -27,10 +27,10 @@ export function defineRunScheduledReportJob(agenda: Agenda) {
       );
 
       // Post to Slack
-      const slackApp = getSlackApp();
-      if (slackApp && user.slackAccessToken) {
-        await slackApp.client.chat.postMessage({
-          token: user.slackAccessToken,
+      const slackClient = getSlackWebClient();
+      if (slackClient && client.slackChannelId) {
+        await slackClient.chat.postMessage({
+          token: user.slackAccessToken || process.env.SLACK_BOT_TOKEN,
           channel: client.slackChannelId,
           text: result.analysis,
         });

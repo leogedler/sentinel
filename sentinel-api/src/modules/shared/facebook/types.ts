@@ -6,6 +6,8 @@ export interface WindsorDataRow {
   date: string;
   campaign: string;
   campaign_id: string;
+  account_id?: string;
+  account_name?: string;
   spend: number;
   impressions: number;
   clicks: number;
@@ -16,6 +18,13 @@ export interface WindsorDataRow {
   roas: number;
   reach: number;
   frequency: number;
+}
+
+export interface WindsorCampaignSummary {
+  campaign_id: string;
+  campaign_name: string;
+  account_id: string;
+  account_name: string;
 }
 
 export interface CampaignKPIs {
