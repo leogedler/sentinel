@@ -28,7 +28,7 @@ export const helpCommand: Middleware<SlackCommandMiddlewareArgs> = async ({ ack,
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: 'You can also send natural language messages in any client channel, and I\'ll analyze your campaigns using AI.',
+          text: 'You can also send natural language messages in any client channel, and I\'ll analyze your campaigns using AI.\nFor example: _"Schedule a daily report at 9am for all campaigns"_ or _"Set up weekly reports every Monday at 8:30 for the Summer campaign"_.',
         },
       },
       {

@@ -21,21 +21,40 @@ async function main() {
   });
 
   // 3. Start Agenda scheduler
-  try {
-    await startAgenda();
-  } catch (error) {
-    logger.warn('Agenda scheduler failed to start (non-fatal):', error);
+  // Controlled by ENABLE_AGENDA env var ('true'/'false').
+  // Should only run in the api container to avoid duplicate job processing.
+  if (process.env.ENABLE_AGENDA !== 'false') {
+    try {
+      await startAgenda();
+    } catch (error) {
+      logger.warn('Agenda scheduler failed to start (non-fatal):', error);
+    }
+  } else {
+    logger.info('Agenda scheduler disabled via ENABLE_AGENDA=false');
   }
 
-  // 4. Start Slack bot (only if tokens are configured)
-  if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
+  // 4. Start Slack bot
+  // Controlled by ENABLE_SLACK_BOT env var ('true'/'false').
+  // Defaults to true when tokens are present, so existing setups without
+  // the variable keep working. Set ENABLE_SLACK_BOT=false in the api
+  // container to prevent it from running there.
+  const slackEnabled =
+    process.env.ENABLE_SLACK_BOT !== 'false' &&
+    !!process.env.SLACK_BOT_TOKEN &&
+    !!process.env.SLACK_APP_TOKEN;
+
+  if (slackEnabled) {
     try {
       await startSlackBot();
     } catch (error) {
       logger.warn('Slack bot failed to start (non-fatal):', error);
     }
   } else {
-    logger.info('Slack bot skipped (tokens not configured)');
+    logger.info(
+      process.env.ENABLE_SLACK_BOT === 'false'
+        ? 'Slack bot disabled via ENABLE_SLACK_BOT=false'
+        : 'Slack bot skipped (tokens not configured)'
+    );
   }
 
   // 5. Graceful shutdown

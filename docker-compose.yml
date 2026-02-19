@@ -29,6 +29,8 @@ services:
       - ./sentinel-api/.env
     environment:
       NODE_ENV: development
+      ENABLE_SLACK_BOT: 'false'
+      ENABLE_AGENDA: 'true'
     volumes:
       - ./sentinel-api/src:/app/src
     depends_on:
@@ -45,6 +47,8 @@ services:
       - ./sentinel-api/.env
     environment:
       NODE_ENV: development
+      ENABLE_SLACK_BOT: 'true'
+      ENABLE_AGENDA: 'false'
     volumes:
       - ./sentinel-api/src:/app/src
     depends_on:
