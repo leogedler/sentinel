@@ -7,6 +7,15 @@ import { logger } from '../../shared/utils/logger';
 const MAX_HISTORY = 20;
 const MAX_TOOL_ITERATIONS = 10;
 const MAX_CLAUDE_RETRIES = 3;
+const THINKING_THRESHOLD_MS = 5000;
+
+const THINKING_MESSAGES = [
+  '⏳ On it! This one needs a moment of thought...',
+  '🔍 Digging into your data, hang tight...',
+  '⚙️ Working on it! I\'ll have something for you shortly...',
+  '📊 Crunching the numbers, give me a sec...',
+  '🧠 Thinking this through, won\'t be long...',
+];
 
 async function createMessageWithRetry(
   anthropic: Anthropic,
@@ -31,12 +40,15 @@ async function createMessageWithRetry(
 }
 
 export function registerMessageHandler(app: App) {
-  app.event('app_mention', async ({ event, say, context }) => {
+  app.event('app_mention', async ({ event, say, context, client }) => {
     // Strip the @mention from the beginning of the text
     const channelId = event.channel;
     const userText = event.text.replace(/<@[^>]+>\s*/g, '').trim();
 
     if (!userText) return;
+
+    let thinkingTimer: ReturnType<typeof setTimeout> | undefined;
+    let thinkingTs: string | undefined;
 
     try {
       // teamId is provided by Bolt context — no extra API call needed
@@ -81,6 +93,18 @@ export function registerMessageHandler(app: App) {
         userId: String(sentinelUser._id),
         windsorApiKey: sentinelUser.windsorApiKey,
       };
+
+      // Start a threshold timer — if processing takes longer than THINKING_THRESHOLD_MS,
+      // post a friendly "working on it" message and later update it with the real answer.
+      thinkingTimer = setTimeout(async () => {
+        try {
+          const msg = THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)];
+          const posted = await client.chat.postMessage({ channel: channelId, text: msg });
+          thinkingTs = posted.ts as string;
+        } catch (e) {
+          logger.warn('Failed to post thinking message:', e);
+        }
+      }, THINKING_THRESHOLD_MS);
 
       const systemPrompt = sentinelClient
         ? `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns. You have access to tools to fetch campaign data, run analysis skills, and more. The current client is "${sentinelClient.name}". Be concise and data-driven in your responses. Format responses for Slack (use *bold*, _italic_, and bullet points).`
@@ -143,7 +167,13 @@ export function registerMessageHandler(app: App) {
       );
       const replyText = textBlocks.map((b) => b.text).join('\n') || 'I processed your request but have no text response.';
 
-      await say(replyText);
+      clearTimeout(thinkingTimer);
+      if (thinkingTs) {
+        // Replace the "thinking" message with the real answer in-place
+        await client.chat.update({ channel: channelId, ts: thinkingTs, text: replyText });
+      } else {
+        await say(replyText);
+      }
 
       // Update conversation history
       channelContext.conversationHistory.push({
@@ -161,6 +191,8 @@ export function registerMessageHandler(app: App) {
     } catch (error) {
       logger.error('Message handler error:', error);
       await say('Sorry, I encountered an error processing your request. Please try again.');
+    } finally {
+      clearTimeout(thinkingTimer);
     }
   });
 }
