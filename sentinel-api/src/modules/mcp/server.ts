@@ -6,7 +6,7 @@ import { syncClientsCampaignsTool } from './tools/sync.tool';
 import { createScheduleTool } from './tools/schedule.tool';
 import { searchClientsCampaigns } from './tools/search.tool';
 
-// Tool definitions in Anthropic API format (used by Slack bot for Claude calls)
+// Tool definitions — provider-agnostic schema (input_schema format; compatible with both Anthropic and Gemini)
 export function getToolDefinitions() {
   return [
     {

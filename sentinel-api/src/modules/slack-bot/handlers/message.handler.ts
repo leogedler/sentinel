@@ -1,13 +1,37 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { App } from '@slack/bolt';
 import { User, Client, ChannelContext } from '../../shared/db/models';
 import { getToolDefinitions, executeToolCall } from '../../mcp/server';
 import { logger } from '../../shared/utils/logger';
+import { createAIProvider, AIMessage, AITextPart, AIToolUsePart, AIToolResultPart, AIToolDefinition } from '../../shared/ai';
 
 const MAX_HISTORY = 20;
 const MAX_TOOL_ITERATIONS = 10;
-const MAX_CLAUDE_RETRIES = 3;
 const THINKING_THRESHOLD_MS = 5000;
+
+// Patterns that clearly signal a conversational exchange requiring no data tools.
+const CONVERSATIONAL_PATTERNS = [
+  /^(hi|hello|hey|howdy|greetings|good\s+(morning|afternoon|evening|day))\b/i,
+  /^(thanks|thank you|thx|ty|cheers|np|no problem)\b/i,
+  /^(ok|okay|got it|understood|sounds good|perfect|great|cool|nice|sure)\b/i,
+  /^(bye|goodbye|see you|later|cya)\b/i,
+  /^(who are you|what are you|what can you do|what do you do|help)\?*$/i,
+];
+
+// Data-related keywords that indicate the user likely needs a tool call.
+const DATA_KEYWORDS = /campaign|client|report|kpi|spend|ads?\b|windsor|facebook|sync|schedule|metric|performance|import|fetch|analyz|data/i;
+
+/**
+ * Returns true when the message is a simple conversational exchange
+ * (greeting, acknowledgement, capability question) that does not require
+ * any tool calls to answer.  Used to skip passing the full tool list to
+ * the AI provider, reducing token usage and unnecessary API calls.
+ */
+function isConversationalMessage(text: string): boolean {
+  const trimmed = text.trim();
+  if (DATA_KEYWORDS.test(trimmed)) return false;
+  if (trimmed.length <= 20) return true;
+  return CONVERSATIONAL_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
 
 const THINKING_MESSAGES = [
   '⏳ On it! This one needs a moment of thought...',
@@ -16,28 +40,6 @@ const THINKING_MESSAGES = [
   '📊 Crunching the numbers, give me a sec...',
   '🧠 Thinking this through, won\'t be long...',
 ];
-
-async function createMessageWithRetry(
-  anthropic: Anthropic,
-  params: Parameters<Anthropic['messages']['create']>[0],
-  retries = MAX_CLAUDE_RETRIES
-): Promise<Anthropic.Message> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      return await anthropic.messages.create(params) as Anthropic.Message;
-    } catch (error: any) {
-      const isOverloaded = error?.status === 529 || error?.error?.error?.type === 'overloaded_error';
-      if (isOverloaded && attempt < retries) {
-        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        logger.warn(`Anthropic overloaded (attempt ${attempt}/${retries}), retrying in ${delay}ms`);
-        await new Promise((r) => setTimeout(r, delay));
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw new Error('Unreachable');
-}
 
 export function registerMessageHandler(app: App) {
   app.event('app_mention', async ({ event, say, context, client }) => {
@@ -80,14 +82,17 @@ export function registerMessageHandler(app: App) {
         timestamp: new Date(),
       });
 
-      // Build messages for Claude
-      const messages: Anthropic.MessageParam[] = channelContext.conversationHistory.map((msg) => ({
-        role: msg.role,
+      // Build messages for the AI provider
+      const messages: AIMessage[] = channelContext.conversationHistory.map((msg) => ({
+        role: msg.role as 'user' | 'assistant',
         content: msg.content,
       }));
 
-      const anthropic = new Anthropic();
-      const tools = getToolDefinitions() as Anthropic.Tool[];
+      const provider = createAIProvider();
+      const tools = getToolDefinitions() as AIToolDefinition[];
+      // Skip tools entirely for conversational messages — avoids unnecessary
+      // token overhead and prevents the model from making spurious tool calls.
+      const activeTools = isConversationalMessage(userText) ? [] : tools;
 
       const userContext = {
         userId: String(sentinelUser._id),
@@ -106,16 +111,17 @@ export function registerMessageHandler(app: App) {
         }
       }, THINKING_THRESHOLD_MS);
 
-      const systemPrompt = sentinelClient
-        ? `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns. You have access to tools to fetch campaign data, run analysis skills, and more. The current client is "${sentinelClient.name}". Be concise and data-driven in your responses. Format responses for Slack (use *bold*, _italic_, and bullet points).`
-        : `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns. This channel is not linked to a specific client. You can still help with global actions like syncing clients and campaigns from Windsor. Use the sync_clients_and_campaigns tool when the user asks to import, fetch, or sync their data. Format responses for Slack (use *bold*, _italic_, and bullet points).`;
+      const toolUseGuidance = 'Only invoke tools when the user explicitly requests data, reports, or account actions. For greetings, general questions about your capabilities, or conversational exchanges, respond directly without calling any tools.';
 
-      let response = await createMessageWithRetry(anthropic, {
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2048,
+      const systemPrompt = sentinelClient
+        ? `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns. You have access to tools to fetch campaign data, run analysis skills, and more. The current client is "${sentinelClient.name}". Be concise and data-driven in your responses. Format responses for Slack (use *bold*, _italic_, and bullet points). ${toolUseGuidance}`
+        : `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns. This channel is not linked to a specific client. You can still help with global actions like syncing clients and campaigns from Windsor. Use the sync_clients_and_campaigns tool when the user asks to import, fetch, or sync their data. Format responses for Slack (use *bold*, _italic_, and bullet points). ${toolUseGuidance}`;
+
+      let response = await provider.createMessage({
         system: systemPrompt,
-        tools,
         messages,
+        tools: activeTools,
+        max_tokens: 2048,
       });
 
       // Tool call loop
@@ -123,26 +129,28 @@ export function registerMessageHandler(app: App) {
       while (response.stop_reason === 'tool_use' && iterations < MAX_TOOL_ITERATIONS) {
         iterations++;
         const toolUseBlocks = response.content.filter(
-          (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
+          (b): b is AIToolUsePart => b.type === 'tool_use'
         );
 
-        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+        const toolResults: AIToolResultPart[] = [];
         for (const toolUse of toolUseBlocks) {
           try {
             const result = await executeToolCall(
               toolUse.name,
-              toolUse.input as Record<string, any>,
+              toolUse.input,
               userContext
             );
             toolResults.push({
               type: 'tool_result',
               tool_use_id: toolUse.id,
+              tool_name: toolUse.name,
               content: JSON.stringify(result),
             });
           } catch (error: any) {
             toolResults.push({
               type: 'tool_result',
               tool_use_id: toolUse.id,
+              tool_name: toolUse.name,
               content: `Error: ${error.message}`,
               is_error: true,
             });
@@ -152,18 +160,17 @@ export function registerMessageHandler(app: App) {
         messages.push({ role: 'assistant', content: response.content });
         messages.push({ role: 'user', content: toolResults });
 
-        response = await createMessageWithRetry(anthropic, {
-          model: 'claude-sonnet-4-6',
-          max_tokens: 2048,
+        response = await provider.createMessage({
           system: systemPrompt,
-          tools,
           messages,
+          tools: activeTools,
+          max_tokens: 2048,
         });
       }
 
       // Extract final text response
       const textBlocks = response.content.filter(
-        (b): b is Anthropic.TextBlock => b.type === 'text'
+        (b): b is AITextPart => b.type === 'text'
       );
       const replyText = textBlocks.map((b) => b.text).join('\n') || 'I processed your request but have no text response.';
 

@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { createAIProvider } from '../../shared/ai';
 import { Skill, Campaign, Report, Client } from '../../shared/db/models';
 import { executeSkill } from '../../shared/skills/skill.engine';
 import { fetchCampaignData } from '../../shared/facebook/windsor.client';
@@ -41,15 +41,15 @@ export async function runSkill(
 
   const { renderedPrompt } = await executeSkill(args.skillId, variables);
 
-  const anthropic = new Anthropic();
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
+  const provider = createAIProvider();
+  const response = await provider.createMessage({
+    system: '',
     messages: [{ role: 'user', content: renderedPrompt }],
+    tools: [],
+    max_tokens: 2048,
   });
 
-  const analysis =
-    response.content[0].type === 'text' ? response.content[0].text : '';
+  const analysis = response.content.find((p) => p.type === 'text')?.text ?? '';
 
   // Save report
   const client = await Client.findById(campaign.clientId);
