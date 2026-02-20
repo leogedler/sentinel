@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.21.0",
     "@modelcontextprotocol/sdk": "^1.8.0",
     "@slack/bolt": "^4.1.0",
     "agenda": "^5.0.0",
