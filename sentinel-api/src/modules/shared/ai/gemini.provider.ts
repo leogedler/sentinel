@@ -127,7 +127,17 @@ export class GeminiProvider implements AIProvider {
       } catch (error: any) {
         const isRateLimit = error?.status === 429 || error?.message?.includes('429');
         if (isRateLimit && attempt < MAX_RETRIES) {
-          const delay = Math.pow(2, attempt) * 1000;
+          const apiDelayMs = this.parseRetryDelayMs(error);
+
+          // If the API tells us to wait more than 2 minutes it is a daily quota
+          // exhaustion — no point retrying within this request lifecycle.
+          if (apiDelayMs !== null && apiDelayMs > 120_000) {
+            logger.warn('Gemini daily quota exhausted, not retrying');
+            throw error;
+          }
+
+          // Prefer the API-provided delay; fall back to exponential backoff.
+          const delay = apiDelayMs ?? Math.pow(2, attempt) * 1000;
           logger.warn(`Gemini rate limited (attempt ${attempt}/${MAX_RETRIES}), retrying in ${delay}ms`);
           await new Promise((r) => setTimeout(r, delay));
           continue;
@@ -136,5 +146,18 @@ export class GeminiProvider implements AIProvider {
       }
     }
     throw new Error('Unreachable');
+  }
+
+  /**
+   * Extracts the retry delay in milliseconds from a Gemini 429 error body.
+   * The Google API embeds a RetryInfo object in the error message JSON:
+   *   {"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"42s"}
+   */
+  private parseRetryDelayMs(error: any): number | null {
+    try {
+      const match = (error?.message ?? '').match(/"retryDelay":"(\d+(?:\.\d+)?)s"/);
+      if (match) return Math.ceil(parseFloat(match[1])) * 1000;
+    } catch {}
+    return null;
   }
 }

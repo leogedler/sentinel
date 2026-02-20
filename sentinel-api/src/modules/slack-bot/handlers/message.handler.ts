@@ -8,6 +8,31 @@ const MAX_HISTORY = 20;
 const MAX_TOOL_ITERATIONS = 10;
 const THINKING_THRESHOLD_MS = 5000;
 
+// Patterns that clearly signal a conversational exchange requiring no data tools.
+const CONVERSATIONAL_PATTERNS = [
+  /^(hi|hello|hey|howdy|greetings|good\s+(morning|afternoon|evening|day))\b/i,
+  /^(thanks|thank you|thx|ty|cheers|np|no problem)\b/i,
+  /^(ok|okay|got it|understood|sounds good|perfect|great|cool|nice|sure)\b/i,
+  /^(bye|goodbye|see you|later|cya)\b/i,
+  /^(who are you|what are you|what can you do|what do you do|help)\?*$/i,
+];
+
+// Data-related keywords that indicate the user likely needs a tool call.
+const DATA_KEYWORDS = /campaign|client|report|kpi|spend|ads?\b|windsor|facebook|sync|schedule|metric|performance|import|fetch|analyz|data/i;
+
+/**
+ * Returns true when the message is a simple conversational exchange
+ * (greeting, acknowledgement, capability question) that does not require
+ * any tool calls to answer.  Used to skip passing the full tool list to
+ * the AI provider, reducing token usage and unnecessary API calls.
+ */
+function isConversationalMessage(text: string): boolean {
+  const trimmed = text.trim();
+  if (DATA_KEYWORDS.test(trimmed)) return false;
+  if (trimmed.length <= 20) return true;
+  return CONVERSATIONAL_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
 const THINKING_MESSAGES = [
   '⏳ On it! This one needs a moment of thought...',
   '🔍 Digging into your data, hang tight...',
@@ -65,6 +90,9 @@ export function registerMessageHandler(app: App) {
 
       const provider = createAIProvider();
       const tools = getToolDefinitions() as AIToolDefinition[];
+      // Skip tools entirely for conversational messages — avoids unnecessary
+      // token overhead and prevents the model from making spurious tool calls.
+      const activeTools = isConversationalMessage(userText) ? [] : tools;
 
       const userContext = {
         userId: String(sentinelUser._id),
@@ -83,14 +111,16 @@ export function registerMessageHandler(app: App) {
         }
       }, THINKING_THRESHOLD_MS);
 
+      const toolUseGuidance = 'Only invoke tools when the user explicitly requests data, reports, or account actions. For greetings, general questions about your capabilities, or conversational exchanges, respond directly without calling any tools.';
+
       const systemPrompt = sentinelClient
-        ? `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns. You have access to tools to fetch campaign data, run analysis skills, and more. The current client is "${sentinelClient.name}". Be concise and data-driven in your responses. Format responses for Slack (use *bold*, _italic_, and bullet points).`
-        : `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns. This channel is not linked to a specific client. You can still help with global actions like syncing clients and campaigns from Windsor. Use the sync_clients_and_campaigns tool when the user asks to import, fetch, or sync their data. Format responses for Slack (use *bold*, _italic_, and bullet points).`;
+        ? `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns. You have access to tools to fetch campaign data, run analysis skills, and more. The current client is "${sentinelClient.name}". Be concise and data-driven in your responses. Format responses for Slack (use *bold*, _italic_, and bullet points). ${toolUseGuidance}`
+        : `You are Sentinel, a marketing report assistant. You help marketers analyze Facebook Ads campaigns. This channel is not linked to a specific client. You can still help with global actions like syncing clients and campaigns from Windsor. Use the sync_clients_and_campaigns tool when the user asks to import, fetch, or sync their data. Format responses for Slack (use *bold*, _italic_, and bullet points). ${toolUseGuidance}`;
 
       let response = await provider.createMessage({
         system: systemPrompt,
         messages,
-        tools,
+        tools: activeTools,
         max_tokens: 2048,
       });
 
@@ -133,7 +163,7 @@ export function registerMessageHandler(app: App) {
         response = await provider.createMessage({
           system: systemPrompt,
           messages,
-          tools,
+          tools: activeTools,
           max_tokens: 2048,
         });
       }
