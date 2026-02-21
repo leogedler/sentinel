@@ -1,15 +1,14 @@
-import { Router } from 'express';
 import { listClients, createClient, getClient, updateClient, deleteClient } from '../controllers/clients.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { asyncHandler } from '../helpers';
+import { createRouter } from '../helpers';
 
-const router = Router();
+const router = createRouter();
 router.use(authMiddleware);
 
-router.get('/', asyncHandler(listClients));
-router.post('/', asyncHandler(createClient));
-router.get('/:id', asyncHandler(getClient));
-router.put('/:id', asyncHandler(updateClient));
-router.delete('/:id', asyncHandler(deleteClient));
+router.get('/', listClients);
+router.post('/', createClient);
+router.get('/:id', getClient);
+router.put('/:id', updateClient);
+router.delete('/:id', deleteClient);
 
 export default router;

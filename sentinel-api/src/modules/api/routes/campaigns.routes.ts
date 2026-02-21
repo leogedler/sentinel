@@ -1,15 +1,14 @@
-import { Router } from 'express';
 import { listCampaigns, createCampaign, getCampaign, updateCampaign, deleteCampaign } from '../controllers/campaigns.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { asyncHandler } from '../helpers';
+import { createRouter } from '../helpers';
 
-const router = Router({ mergeParams: true });
+const router = createRouter({ mergeParams: true });
 router.use(authMiddleware);
 
-router.get('/', asyncHandler(listCampaigns));
-router.post('/', asyncHandler(createCampaign));
-router.get('/:id', asyncHandler(getCampaign));
-router.put('/:id', asyncHandler(updateCampaign));
-router.delete('/:id', asyncHandler(deleteCampaign));
+router.get('/', listCampaigns);
+router.post('/', createCampaign);
+router.get('/:id', getCampaign);
+router.put('/:id', updateCampaign);
+router.delete('/:id', deleteCampaign);
 
 export default router;
