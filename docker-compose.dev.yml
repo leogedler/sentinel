@@ -10,6 +10,10 @@
 #   - node_modules lives in an anonymous volume so the container's
 #     Linux-built packages are never overwritten by the macOS host tree.
 
+# After adding a new npm dependency:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml rm -svf api
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up api -d
+
 services:
 
   api:

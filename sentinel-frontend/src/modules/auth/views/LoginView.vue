@@ -12,6 +12,13 @@
         {{ errorMsg }}
       </div>
 
+      <!-- Google Sign-In -->
+      <div ref="googleBtn" class="google-btn-wrapper"></div>
+
+      <div class="auth-divider">
+        <span>or</span>
+      </div>
+
       <form @submit.prevent="handleLogin">
         <div class="form-group">
           <label class="form-label" for="email">Email</label>
@@ -58,6 +65,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/shared/stores/auth.store'
 import { extractError } from '@/shared/composables/useApi'
+import { useGoogleAuth } from '@/shared/composables/useGoogleAuth'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -65,6 +73,9 @@ const auth = useAuthStore()
 const email = ref('')
 const password = ref('')
 const errorMsg = ref('')
+const googleBtn = ref<HTMLElement | null>(null)
+
+useGoogleAuth(googleBtn, errorMsg)
 
 async function handleLogin() {
   errorMsg.value = ''
@@ -127,6 +138,31 @@ async function handleLogin() {
   font-weight: 600;
   color: var(--text);
   margin-bottom: 24px;
+}
+
+.google-btn-wrapper {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
 }
 
 .auth-footer {
