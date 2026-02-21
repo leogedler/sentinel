@@ -73,7 +73,7 @@ export async function slackOAuthCallback(req: AuthRequest, res: Response): Promi
     }
     await user.save();
 
-    logger.info(`Slack workspace "${team.name}" connected for user ${user.email}`);
+    logger.info('Slack workspace connected', { teamName: team.name, userEmail: user.email });
     res.redirect(`${frontendUrl}/settings?slack=connected`);
   } catch (error) {
     if (error instanceof AppError) throw error;
@@ -94,6 +94,6 @@ export async function disconnectSlackWorkspace(req: AuthRequest, res: Response):
   }
 
   await user.save();
-  logger.info(`Slack workspace ${teamId} disconnected for user ${user.email}`);
+  logger.info('Slack workspace disconnected', { teamId, userEmail: user.email });
   res.json({ message: 'Workspace disconnected' });
 }

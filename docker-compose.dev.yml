@@ -1,0 +1,37 @@
+# Hot-reload development override
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# What changes vs the base compose file:
+#   - api / slack-bot  → Dockerfile.dev (tsx watch — no build step)
+#   - frontend         → Dockerfile.frontend.dev (vite --host — no build step)
+#   - Full source trees are bind-mounted so edits are reflected immediately.
+#   - node_modules lives in an anonymous volume so the container's
+#     Linux-built packages are never overwritten by the macOS host tree.
+
+services:
+
+  api:
+    build:
+      context: ./sentinel-api
+      dockerfile: docker/Dockerfile.dev
+    volumes:
+      - ./sentinel-api:/app
+      - /app/node_modules
+
+  slack-bot:
+    build:
+      context: ./sentinel-api
+      dockerfile: docker/Dockerfile.dev
+    volumes:
+      - ./sentinel-api:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./sentinel-frontend
+      dockerfile: docker/Dockerfile.frontend.dev
+    volumes:
+      - ./sentinel-frontend:/app
+      - /app/node_modules

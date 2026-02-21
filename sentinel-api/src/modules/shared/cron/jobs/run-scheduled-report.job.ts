@@ -46,9 +46,9 @@ export function defineRunScheduledReportJob(agenda: Agenda) {
       schedule.lastRunAt = new Date();
       await schedule.save();
 
-      logger.info(`Scheduled report completed for schedule ${scheduleId}`);
+      logger.info('Scheduled report completed', { scheduleId });
     } catch (error) {
-      logger.error(`run_scheduled_report failed for schedule ${scheduleId}:`, error);
+      logger.error('run_scheduled_report failed', error, { scheduleId });
     }
   });
 }

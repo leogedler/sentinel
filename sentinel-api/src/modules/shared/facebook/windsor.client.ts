@@ -47,7 +47,7 @@ async function fetchWithRetry(
       cache.set(cacheKey, { data, timestamp: Date.now() });
       return data;
     } catch (error) {
-      logger.warn(`Windsor.ai request failed (attempt ${attempt}/${retries})`, error);
+      logger.warn('Windsor.ai request failed', error, { attempt, retries });
       if (attempt === retries) throw error;
       await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
     }

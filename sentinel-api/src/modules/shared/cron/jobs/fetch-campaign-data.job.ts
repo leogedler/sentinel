@@ -16,7 +16,7 @@ export function defineFetchCampaignDataJob(agenda: Agenda) {
 
       const user = await User.findById(userId);
       if (!user?.windsorApiKey) {
-        logger.warn(`No Windsor API key for user ${userId}`);
+        logger.warn('No Windsor API key for user', { userId });
         return;
       }
 
@@ -37,9 +37,9 @@ export function defineFetchCampaignDataJob(agenda: Agenda) {
         { upsert: true }
       );
 
-      logger.info(`Fetched data for campaign ${campaign.name}`);
+      logger.info('Fetched data for campaign', { campaignId, campaignName: campaign.name });
     } catch (error) {
-      logger.error(`fetch_campaign_data failed for campaign ${campaignId}:`, error);
+      logger.error('fetch_campaign_data failed', error, { campaignId });
     }
   });
 }

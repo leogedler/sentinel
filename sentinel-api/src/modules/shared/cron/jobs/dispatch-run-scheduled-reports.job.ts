@@ -27,14 +27,15 @@ export function defineDispatchRunScheduledReportsJob(agenda: Agenda) {
             count++;
           }
         } catch {
-          logger.warn(
-            `dispatch_run_scheduled_reports: skipping schedule ${schedule._id} — invalid cron "${schedule.cronExpression}"`
-          );
+          logger.warn('dispatch_run_scheduled_reports: skipping invalid cron schedule', {
+            scheduleId: schedule._id,
+            cronExpression: schedule.cronExpression,
+          });
         }
       }
 
       if (count > 0) {
-        logger.info(`dispatch_run_scheduled_reports: queued ${count} report jobs`);
+        logger.info('dispatch_run_scheduled_reports: queued report jobs', { count });
       }
     } catch (error) {
       logger.error('dispatch_run_scheduled_reports failed:', error);

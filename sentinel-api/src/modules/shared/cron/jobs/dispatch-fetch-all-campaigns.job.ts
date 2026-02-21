@@ -22,7 +22,7 @@ export function defineDispatchFetchAllCampaignsJob(agenda: Agenda) {
         count++;
       }
 
-      logger.info(`dispatch_fetch_all_campaigns: queued ${count} fetch jobs`);
+      logger.info('dispatch_fetch_all_campaigns: queued fetch jobs', { count });
     } catch (error) {
       logger.error('dispatch_fetch_all_campaigns failed:', error);
     }
