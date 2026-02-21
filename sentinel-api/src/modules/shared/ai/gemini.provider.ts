@@ -138,7 +138,7 @@ export class GeminiProvider implements AIProvider {
 
           // Prefer the API-provided delay; fall back to exponential backoff.
           const delay = apiDelayMs ?? Math.pow(2, attempt) * 1000;
-          logger.warn(`Gemini rate limited (attempt ${attempt}/${MAX_RETRIES}), retrying in ${delay}ms`);
+          logger.warn('Gemini rate limited, retrying', { attempt, maxRetries: MAX_RETRIES, delayMs: delay });
           await new Promise((r) => setTimeout(r, delay));
           continue;
         }

@@ -14,7 +14,7 @@ export function defineCleanupOldDataJob(agenda: Agenda) {
         date: { $lt: cutoffDate },
       });
 
-      logger.info(`Cleanup: removed ${result.deletedCount} snapshots older than ${RETENTION_DAYS} days`);
+      logger.info('Cleanup: removed old snapshots', { deletedCount: result.deletedCount, retentionDays: RETENTION_DAYS });
     } catch (error) {
       logger.error('cleanup_old_data failed:', error);
     }

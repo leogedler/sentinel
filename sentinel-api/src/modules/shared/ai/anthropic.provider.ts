@@ -82,7 +82,7 @@ export class AnthropicProvider implements AIProvider {
         const isOverloaded = error?.status === 529 || error?.error?.error?.type === 'overloaded_error';
         if (isOverloaded && attempt < MAX_RETRIES) {
           const delay = Math.pow(2, attempt) * 1000;
-          logger.warn(`Anthropic overloaded (attempt ${attempt}/${MAX_RETRIES}), retrying in ${delay}ms`);
+          logger.warn('Anthropic overloaded, retrying', { attempt, maxRetries: MAX_RETRIES, delayMs: delay });
           await new Promise((r) => setTimeout(r, delay));
           continue;
         }

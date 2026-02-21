@@ -17,7 +17,7 @@ async function main() {
   const app = createApp();
   const port = process.env.PORT || 3000;
   const server = app.listen(port, () => {
-    logger.info(`API server running on port ${port}`);
+    logger.info('API server running', { port });
   });
 
   // 3. Start Agenda scheduler
@@ -59,7 +59,7 @@ async function main() {
 
   // 5. Graceful shutdown
   const shutdown = async (signal: string) => {
-    logger.info(`${signal} received. Shutting down...`);
+    logger.info('Signal received. Shutting down...', { signal });
     server.close();
     await stopAgenda();
     process.exit(0);
