@@ -12,18 +12,40 @@
         {{ errorMsg }}
       </div>
 
+      <!-- Google Sign-In -->
+      <div ref="googleBtn" class="google-btn-wrapper"></div>
+
+      <div class="auth-divider">
+        <span>or</span>
+      </div>
+
       <form @submit.prevent="handleRegister">
-        <div class="form-group">
-          <label class="form-label" for="name">Full name</label>
-          <input
-            id="name"
-            v-model="name"
-            type="text"
-            class="form-input"
-            placeholder="Jane Smith"
-            required
-            autocomplete="name"
-          />
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="firstName">First name</label>
+            <input
+              id="firstName"
+              v-model="firstName"
+              type="text"
+              class="form-input"
+              placeholder="Jane"
+              required
+              autocomplete="given-name"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="lastName">Last name</label>
+            <input
+              id="lastName"
+              v-model="lastName"
+              type="text"
+              class="form-input"
+              placeholder="Smith"
+              required
+              autocomplete="family-name"
+            />
+          </div>
         </div>
 
         <div class="form-group">
@@ -73,19 +95,24 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/shared/stores/auth.store'
 import { extractError } from '@/shared/composables/useApi'
+import { useGoogleAuth } from '@/shared/composables/useGoogleAuth'
 
 const router = useRouter()
 const auth = useAuthStore()
 
-const name = ref('')
+const firstName = ref('')
+const lastName = ref('')
 const email = ref('')
 const password = ref('')
 const errorMsg = ref('')
+const googleBtn = ref<HTMLElement | null>(null)
+
+useGoogleAuth(googleBtn, errorMsg)
 
 async function handleRegister() {
   errorMsg.value = ''
   try {
-    await auth.register(name.value, email.value, password.value)
+    await auth.register(firstName.value, lastName.value, email.value, password.value)
     await router.push('/clients')
   } catch (err) {
     errorMsg.value = extractError(err)
@@ -143,6 +170,37 @@ async function handleRegister() {
   font-weight: 600;
   color: var(--text);
   margin-bottom: 24px;
+}
+
+.google-btn-wrapper {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .auth-footer {

@@ -11,8 +11,11 @@ export interface ISlackWorkspace {
 
 export interface IUser extends Document {
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  googleId?: string;
   windsorApiKey?: string;
   slackWorkspaces: ISlackWorkspace[];
   timezone: string;
@@ -42,8 +45,11 @@ const slackWorkspaceSchema = new Schema<ISlackWorkspace>(
 const userSchema = new Schema<IUser>(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    passwordHash: { type: String, required: true },
+    passwordHash: { type: String },
     name: { type: String, required: true, trim: true },
+    firstName: { type: String, trim: true },
+    lastName: { type: String, trim: true },
+    googleId: { type: String, sparse: true, unique: true },
     windsorApiKey: {
       type: String,
       set: (val: string) => (val ? encrypt(val) : val),
@@ -59,12 +65,13 @@ const userSchema = new Schema<IUser>(
 );
 
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('passwordHash')) return next();
+  if (!this.isModified('passwordHash') || !this.passwordHash) return next();
   this.passwordHash = await bcrypt.hash(this.passwordHash, 12);
   next();
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+  if (!this.passwordHash) return false;
   return bcrypt.compare(candidatePassword, this.passwordHash);
 };
 

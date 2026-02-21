@@ -1,11 +1,10 @@
-import { Router } from 'express';
 import { syncFromWindsor } from '../controllers/windsor.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { asyncHandler } from '../helpers';
+import { createRouter } from '../helpers';
 
-const router = Router();
+const router = createRouter();
 router.use(authMiddleware);
 
-router.post('/sync', asyncHandler(syncFromWindsor));
+router.post('/sync', syncFromWindsor);
 
 export default router;

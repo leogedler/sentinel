@@ -1,12 +1,11 @@
-import { Router } from 'express';
 import { slackInstall, slackOAuthCallback, disconnectSlackWorkspace } from '../controllers/slack.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { asyncHandler } from '../helpers';
+import { createRouter } from '../helpers';
 
-const router = Router();
+const router = createRouter();
 
-router.get('/install', authMiddleware, asyncHandler(slackInstall));
-router.get('/oauth/callback', asyncHandler(slackOAuthCallback));
-router.delete('/workspace/:teamId', authMiddleware, asyncHandler(disconnectSlackWorkspace));
+router.get('/install', authMiddleware, slackInstall);
+router.get('/oauth/callback', slackOAuthCallback);
+router.delete('/workspace/:teamId', authMiddleware, disconnectSlackWorkspace);
 
 export default router;

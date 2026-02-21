@@ -11,6 +11,8 @@ export interface User {
   _id: string
   email: string
   name: string
+  firstName?: string
+  lastName?: string
   timezone: string
   hasWindsorApiKey?: boolean
   slackWorkspaces: SlackWorkspace[]
@@ -55,10 +57,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function register(name: string, email: string, password: string) {
+  async function register(firstName: string, lastName: string, email: string, password: string) {
     loading.value = true
     try {
-      const res = await authApi.post('/auth/register', { name, email, password })
+      const res = await authApi.post('/auth/register', { firstName, lastName, email, password })
+      setToken(res.data.token)
+      user.value = res.data.user
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function loginWithGoogle(credential: string) {
+    loading.value = true
+    try {
+      const res = await authApi.post('/auth/google', { credential })
       setToken(res.data.token)
       user.value = res.data.user
     } finally {
@@ -70,5 +83,5 @@ export const useAuthStore = defineStore('auth', () => {
     clearAuth()
   }
 
-  return { token, user, loading, isAuthenticated, login, register, logout, fetchMe }
+  return { token, user, loading, isAuthenticated, login, register, loginWithGoogle, logout, fetchMe }
 })

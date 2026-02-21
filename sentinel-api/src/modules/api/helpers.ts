@@ -1,12 +1,11 @@
-import { Request, Response, NextFunction } from 'express';
+import { Router, type RouterOptions, type Request, type Response, type NextFunction, type RequestHandler } from 'express';
 import { ZodError } from 'zod';
-import { AppError } from './middleware/error.middleware';
 
-type AsyncFn = (req: Request, res: Response, next: NextFunction) => Promise<void>;
+type AsyncHandler = (req: Request, res: Response, next: NextFunction) => Promise<void>;
 
-export function asyncHandler(fn: AsyncFn) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch((err) => {
+function wrapAsync(fn: RequestHandler | AsyncHandler): RequestHandler {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch((err) => {
       if (err instanceof ZodError) {
         res.status(400).json({
           error: 'Validation error',
@@ -17,4 +16,17 @@ export function asyncHandler(fn: AsyncFn) {
       next(err);
     });
   };
+}
+
+export function createRouter(options?: RouterOptions): Router {
+  const router = Router(options);
+
+  for (const method of ['get', 'post', 'put', 'patch', 'delete'] as const) {
+    const original = router[method].bind(router);
+    (router as any)[method] = (path: any, ...handlers: (RequestHandler | AsyncHandler)[]) => {
+      return (original as any)(path, ...handlers.map(wrapAsync));
+    };
+  }
+
+  return router;
 }
