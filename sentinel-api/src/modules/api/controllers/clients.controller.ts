@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { z } from 'zod';
-import { Client } from '../../shared/db/models';
+import { Campaign, ChannelContext, Client } from '../../shared/db/models';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AppError } from '../middleware/error.middleware';
 
@@ -45,6 +45,13 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
 
 export async function deleteClient(req: AuthRequest, res: Response): Promise<void> {
   const client = await Client.findOneAndDelete({ _id: req.params.id, userId: req.user!._id });
+
   if (!client) throw new AppError(404, 'Client not found');
+
+  const [campaignResult, contextResult] = await Promise.all([
+    Campaign.deleteMany({ clientId: req.params.id }),
+    ChannelContext.deleteMany({ clientId: req.params.id }),
+  ]);
+
   res.json({ message: 'Client deleted' });
 }

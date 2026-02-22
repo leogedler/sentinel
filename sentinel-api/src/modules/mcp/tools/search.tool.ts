@@ -71,3 +71,25 @@ export async function searchClientsCampaigns(args: SearchArgs, ctx: UserContext)
 
   return { clients, campaigns };
 }
+
+export async function listClients(ctx: UserContext) {
+  const clients = await Client.find({ userId: ctx.userId, isActive: true })
+    .sort({ name: 1 })
+    .lean();
+
+  if (clients.length === 0) {
+    return {
+      clients: [],
+      message: 'No clients found in the system yet. You can run a full sync with the sync_clients_and_campaigns tool to import your clients and campaigns from Windsor.',
+    };
+  }
+
+  return {
+    clients: clients.map((c) => ({
+      id: String(c._id),
+      name: c.name,
+      slackChannelId: c.slackChannelId || null,
+      windsorAccountId: c.windsorAccountId || null,
+    })),
+  };
+}

@@ -7,6 +7,7 @@ export interface ISlackWorkspace {
   teamName: string;
   accessToken: string; // encrypted at rest
   botUserId?: string;
+  slackUserId?: string; // Slack user ID of the Sentinel owner who installed the app
 }
 
 export interface IUser extends Document {
@@ -38,6 +39,7 @@ const slackWorkspaceSchema = new Schema<ISlackWorkspace>(
       },
     },
     botUserId: { type: String },
+    slackUserId: { type: String },
   },
   { _id: false }
 );

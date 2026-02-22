@@ -3,6 +3,10 @@ import { Campaign, Client } from '../../shared/db/models';
 export interface UserContext {
   userId: string;
   windsorApiKey?: string;
+  slackUserId?: string;       // Slack user ID of the person who sent the message
+  ownerSlackUserId?: string;  // Slack user ID of the Sentinel workspace owner
+  slackTeamId?: string;       // Slack team/workspace ID
+  slackChannelId?: string;    // Slack channel ID where the message was sent
 }
 
 export async function getCampaigns(

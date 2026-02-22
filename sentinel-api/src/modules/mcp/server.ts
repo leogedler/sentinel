@@ -5,10 +5,20 @@ import { getClientContext } from './tools/context.tool';
 import { syncClientsCampaignsTool } from './tools/sync.tool';
 import { createScheduleTool } from './tools/schedule.tool';
 import { searchClientsCampaigns } from './tools/search.tool';
+import { linkChannelToClient, unlinkChannelFromClient, deleteClientTool } from './tools/admin.tool';
+import { listClients } from './tools/search.tool';
 
 // Tool definitions — provider-agnostic schema (input_schema format; compatible with both Anthropic and Gemini)
 export function getToolDefinitions() {
   return [
+    {
+      name: 'list_clients',
+      description: 'List all clients in the system. Always call this first when the user asks to see their clients, or when linking a channel to a client and you need to present options. If no clients are returned, suggest running sync_clients_and_campaigns to import data from Windsor.',
+      input_schema: {
+        type: 'object' as const,
+        properties: {},
+      },
+    },
     {
       name: 'search_clients_campaigns',
       description: 'Search for clients and/or campaigns by name (partial, case-insensitive) or exact MongoDB ID. ALWAYS call this first when the user refers to a client or campaign by name and you do not already have its ID. Returns matching IDs you can pass to other tools.',
@@ -168,6 +178,40 @@ export function getToolDefinitions() {
         properties: {},
       },
     },
+    {
+      name: 'link_channel_to_client',
+      description: 'Associate a Slack channel with a client so that reports and bot interactions in that channel are scoped to the client. Use search_clients_campaigns to resolve the client name to an ID first. Defaults to the current channel if no channelId is provided. Only the main Sentinel user can perform this action.',
+      input_schema: {
+        type: 'object' as const,
+        properties: {
+          clientId: { type: 'string', description: 'The client ID to link' },
+          channelId: { type: 'string', description: 'The Slack channel ID to link (defaults to the current channel)' },
+        },
+        required: ['clientId'],
+      },
+    },
+    {
+      name: 'unlink_channel_from_client',
+      description: 'Remove the Slack channel association from a client. Use search_clients_campaigns to resolve the client name to an ID first. Only the main Sentinel user can perform this action.',
+      input_schema: {
+        type: 'object' as const,
+        properties: {
+          clientId: { type: 'string', description: 'The client ID to unlink' },
+        },
+        required: ['clientId'],
+      },
+    },
+    {
+      name: 'delete_client',
+      description: 'Permanently delete a client and all associated campaigns and channel contexts. This action is irreversible. Use search_clients_campaigns to resolve the client name to an ID first. Only the main Sentinel user can perform this action.',
+      input_schema: {
+        type: 'object' as const,
+        properties: {
+          clientId: { type: 'string', description: 'The client ID to delete' },
+        },
+        required: ['clientId'],
+      },
+    },
   ];
 }
 
@@ -178,6 +222,8 @@ export async function executeToolCall(
   userContext: UserContext
 ): Promise<any> {
   switch (toolName) {
+    case 'list_clients':
+      return listClients(userContext);
     case 'search_clients_campaigns':
       return searchClientsCampaigns(args as any, userContext);
     case 'get_campaigns':
@@ -198,6 +244,12 @@ export async function executeToolCall(
       return createScheduleTool(args as any, userContext);
     case 'sync_clients_and_campaigns':
       return syncClientsCampaignsTool(args as any, userContext);
+    case 'link_channel_to_client':
+      return linkChannelToClient(args as any, userContext);
+    case 'unlink_channel_from_client':
+      return unlinkChannelFromClient(args as any, userContext);
+    case 'delete_client':
+      return deleteClientTool(args as any, userContext);
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }
