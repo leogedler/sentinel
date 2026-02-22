@@ -118,6 +118,71 @@
         </div>
       </div>
 
+      <!-- Token Usage Section -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">AI Token Usage</h2>
+          <div class="period-tabs">
+            <button
+              v-for="p in periods"
+              :key="p.value"
+              class="period-tab"
+              :class="{ active: usagePeriod === p.value }"
+              @click="usagePeriod = p.value; fetchTokenUsage()"
+            >{{ p.label }}</button>
+          </div>
+        </div>
+
+        <div v-if="usageLoading" class="usage-loading">
+          <div class="spinner"></div>
+        </div>
+
+        <template v-else-if="tokenUsage">
+          <div class="usage-totals">
+            <div class="usage-stat">
+              <div class="usage-stat-value">{{ tokenUsage.totals.totalTokens.toLocaleString() }}</div>
+              <div class="usage-stat-label">Total tokens</div>
+            </div>
+            <div class="usage-stat">
+              <div class="usage-stat-value">{{ tokenUsage.totals.inputTokens.toLocaleString() }}</div>
+              <div class="usage-stat-label">Input tokens</div>
+            </div>
+            <div class="usage-stat">
+              <div class="usage-stat-value">{{ tokenUsage.totals.outputTokens.toLocaleString() }}</div>
+              <div class="usage-stat-label">Output tokens</div>
+            </div>
+            <div class="usage-stat">
+              <div class="usage-stat-value">{{ tokenUsage.totals.calls.toLocaleString() }}</div>
+              <div class="usage-stat-label">API calls</div>
+            </div>
+          </div>
+
+          <table v-if="tokenUsage.breakdown.length" class="usage-table">
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Model</th>
+                <th class="num">Input</th>
+                <th class="num">Output</th>
+                <th class="num">Total</th>
+                <th class="num">Calls</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in tokenUsage.breakdown" :key="`${row.provider}-${row.model}`">
+                <td><span class="provider-badge">{{ row.provider }}</span></td>
+                <td class="model-cell">{{ row.model }}</td>
+                <td class="num">{{ row.inputTokens.toLocaleString() }}</td>
+                <td class="num">{{ row.outputTokens.toLocaleString() }}</td>
+                <td class="num">{{ row.totalTokens.toLocaleString() }}</td>
+                <td class="num">{{ row.calls }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-else class="settings-description" style="margin-top:12px">No usage recorded for this period.</p>
+        </template>
+      </div>
+
       <!-- Save Button -->
       <div class="settings-actions">
         <div v-if="saveMsg" class="alert" :class="saveSuccess ? 'alert-success' : 'alert-error'">
@@ -144,6 +209,23 @@ interface Settings {
   timezone: string
 }
 
+interface TokenUsageBreakdown {
+  provider: string
+  model: string
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  calls: number
+}
+
+interface TokenUsageData {
+  period: string
+  from: string
+  to: string
+  totals: { inputTokens: number; outputTokens: number; totalTokens: number; calls: number }
+  breakdown: TokenUsageBreakdown[]
+}
+
 const auth = useAuthStore()
 const route = useRoute()
 const notif = useNotification()
@@ -154,6 +236,15 @@ const settings = ref<Settings | null>(null)
 const showApiKey = ref(false)
 const saveMsg = ref('')
 const saveSuccess = ref(false)
+
+const usagePeriod = ref<'week' | 'month' | 'year'>('month')
+const usageLoading = ref(false)
+const tokenUsage = ref<TokenUsageData | null>(null)
+const periods = [
+  { label: 'This week', value: 'week' },
+  { label: 'This month', value: 'month' },
+  { label: 'This year', value: 'year' },
+] as const
 
 const BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 const slackInstallUrl = computed(() => `${BASE}/slack/install?token=${encodeURIComponent(auth.token ?? '')}`)
@@ -169,6 +260,18 @@ const form = reactive({
   windsorApiKey: '',
   timezone: auth.user?.timezone || 'UTC',
 })
+
+async function fetchTokenUsage() {
+  usageLoading.value = true
+  try {
+    const res = await api.get(`/settings/token-usage?period=${usagePeriod.value}`)
+    tokenUsage.value = res.data
+  } catch {
+    // silent
+  } finally {
+    usageLoading.value = false
+  }
+}
 
 async function fetchSettings() {
   try {
@@ -219,7 +322,7 @@ async function saveSettings() {
 }
 
 onMounted(async () => {
-  await fetchSettings()
+  await Promise.all([fetchSettings(), fetchTokenUsage()])
   // Handle redirect back from Slack OAuth
   if (route.query.slack === 'connected') {
     await auth.fetchMe()
@@ -325,5 +428,109 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
   justify-content: flex-end;
+}
+
+.period-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.period-tab {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.period-tab.active {
+  background: var(--primary, #4f46e5);
+  color: #fff;
+  border-color: var(--primary, #4f46e5);
+}
+
+.usage-loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+}
+
+.usage-totals {
+  display: flex;
+  gap: 24px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.usage-stat {
+  flex: 1;
+  min-width: 100px;
+  text-align: center;
+}
+
+.usage-stat-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.usage-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.usage-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.usage-table th.num,
+.usage-table td.num {
+  text-align: right;
+}
+
+.usage-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.usage-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.provider-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--bg-secondary, #f3f4f6);
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.model-cell {
+  font-family: monospace;
+  font-size: 12px;
 }
 </style>

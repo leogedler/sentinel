@@ -1,5 +1,6 @@
 import { createAIProvider } from '../../shared/ai';
-import { Skill, Campaign, Report, Client } from '../../shared/db/models';
+import { Skill, Campaign, Report, Client, TokenUsage } from '../../shared/db/models';
+import { logger } from '../../shared/utils/logger';
 import { executeSkill } from '../../shared/skills/skill.engine';
 import { fetchCampaignData } from '../../shared/facebook/windsor.client';
 import { UserContext } from './campaigns.tool';
@@ -50,6 +51,16 @@ export async function runSkill(
   });
 
   const analysis = response.content.find((p) => p.type === 'text')?.text ?? '';
+
+  TokenUsage.create({
+    userId: ctx.userId,
+    provider: response.provider,
+    aiModel: response.model,
+    inputTokens: response.usage.inputTokens,
+    outputTokens: response.usage.outputTokens,
+    totalTokens: response.usage.inputTokens + response.usage.outputTokens,
+    action: 'skill_execution',
+  }).catch((err) => logger.warn('Failed to record token usage', { err }));
 
   // Save report
   const client = await Client.findById(campaign.clientId);

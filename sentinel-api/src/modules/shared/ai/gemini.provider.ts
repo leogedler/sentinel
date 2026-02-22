@@ -81,6 +81,7 @@ export class GeminiProvider implements AIProvider {
     const candidates = geminiResponse.response.candidates ?? [];
     const responseParts: Part[] = candidates[0]?.content?.parts ?? [];
     const finishReason = candidates[0]?.finishReason;
+    const usageMeta = geminiResponse.response.usageMetadata;
 
     const content: AIContentPart[] = [];
     let hasFunctionCall = false;
@@ -113,7 +114,16 @@ export class GeminiProvider implements AIProvider {
       stop_reason = 'end_turn';
     }
 
-    return { content, stop_reason };
+    return {
+      content,
+      stop_reason,
+      usage: {
+        inputTokens: usageMeta?.promptTokenCount ?? 0,
+        outputTokens: usageMeta?.candidatesTokenCount ?? 0,
+      },
+      model: this.model,
+      provider: 'gemini',
+    };
   }
 
   private async generateWithRetry(

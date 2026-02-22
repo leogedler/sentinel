@@ -1,9 +1,21 @@
 import { App } from '@slack/bolt';
-import { User, Client, ChannelContext } from '../../shared/db/models';
+import { User, Client, ChannelContext, TokenUsage } from '../../shared/db/models';
 import { getToolDefinitions, executeToolCall } from '../../mcp/server';
 import { logger } from '../../shared/utils/logger';
-import { createAIProvider, AIMessage, AITextPart, AIToolUsePart, AIToolResultPart, AIToolDefinition } from '../../shared/ai';
+import { createAIProvider, AIMessage, AITextPart, AIToolUsePart, AIToolResultPart, AIToolDefinition, AIResponse } from '../../shared/ai';
 import { PermissionDeniedError } from '../../mcp/tools/admin.tool';
+
+function recordUsage(userId: string, response: AIResponse, action: string): void {
+  TokenUsage.create({
+    userId,
+    provider: response.provider,
+    aiModel: response.model,
+    inputTokens: response.usage.inputTokens,
+    outputTokens: response.usage.outputTokens,
+    totalTokens: response.usage.inputTokens + response.usage.outputTokens,
+    action,
+  }).catch((err) => logger.warn('Failed to record token usage', { err }));
+}
 
 const MAX_HISTORY = 20;
 const MAX_TOOL_ITERATIONS = 10;
@@ -129,6 +141,7 @@ export function registerMessageHandler(app: App) {
         tools: activeTools,
         max_tokens: 2048,
       });
+      recordUsage(String(sentinelUser._id), response, 'slack_message');
 
       // Tool call loop
       let iterations = 0;
@@ -183,6 +196,7 @@ export function registerMessageHandler(app: App) {
           tools: activeTools,
           max_tokens: 2048,
         });
+        recordUsage(String(sentinelUser._id), response, 'slack_message');
       }
 
       // Extract final text response
