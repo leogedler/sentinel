@@ -3,6 +3,7 @@ import { User, Client, ChannelContext } from '../../shared/db/models';
 import { getToolDefinitions, executeToolCall } from '../../mcp/server';
 import { logger } from '../../shared/utils/logger';
 import { createAIProvider, AIMessage, AITextPart, AIToolUsePart, AIToolResultPart, AIToolDefinition } from '../../shared/ai';
+import { PermissionDeniedError } from '../../mcp/tools/admin.tool';
 
 const MAX_HISTORY = 20;
 const MAX_TOOL_ITERATIONS = 10;
@@ -94,9 +95,14 @@ export function registerMessageHandler(app: App) {
       // token overhead and prevents the model from making spurious tool calls.
       const activeTools = isConversationalMessage(userText) ? [] : tools;
 
+      const workspace = sentinelUser.slackWorkspaces.find((w) => w.teamId === teamId);
       const userContext = {
         userId: String(sentinelUser._id),
         windsorApiKey: sentinelUser.windsorApiKey,
+        slackUserId: event.user,
+        ownerSlackUserId: workspace?.slackUserId,
+        slackTeamId: teamId,
+        slackChannelId: channelId,
       };
 
       // Start a threshold timer — if processing takes longer than THINKING_THRESHOLD_MS,
@@ -147,6 +153,17 @@ export function registerMessageHandler(app: App) {
               content: JSON.stringify(result),
             });
           } catch (error: any) {
+            if (error instanceof PermissionDeniedError && error.ownerSlackUserId) {
+              // Proactively notify the owner about the restricted action attempt
+              try {
+                await client.chat.postMessage({
+                  channel: error.ownerSlackUserId,
+                  text: `Hey! <@${error.requesterSlackUserId}> tried to *${error.attemptedAction}* in <#${channelId}> but doesn't have permission to do so. Just a heads-up in case you'd like to help them out!`,
+                });
+              } catch (e) {
+                logger.warn('Failed to notify owner of restricted action attempt:', e);
+              }
+            }
             toolResults.push({
               type: 'tool_result',
               tool_use_id: toolUse.id,

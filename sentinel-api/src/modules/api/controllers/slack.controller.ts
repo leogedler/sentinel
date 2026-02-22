@@ -52,7 +52,7 @@ export async function slackOAuthCallback(req: AuthRequest, res: Response): Promi
       throw new AppError(400, `Slack OAuth error: ${response.data.error}`);
     }
 
-    const { access_token, team, bot_user_id } = response.data;
+    const { access_token, team, bot_user_id, authed_user } = response.data;
 
     // Upsert: update if this workspace is already connected, otherwise add it
     const existingIndex = user.slackWorkspaces.findIndex((w) => w.teamId === team.id);
@@ -62,6 +62,7 @@ export async function slackOAuthCallback(req: AuthRequest, res: Response): Promi
         teamName: team.name,
         accessToken: access_token,
         botUserId: bot_user_id,
+        slackUserId: authed_user?.id,
       };
     } else {
       user.slackWorkspaces.push({
@@ -69,6 +70,7 @@ export async function slackOAuthCallback(req: AuthRequest, res: Response): Promi
         teamName: team.name,
         accessToken: access_token,
         botUserId: bot_user_id,
+        slackUserId: authed_user?.id,
       });
     }
     await user.save();
