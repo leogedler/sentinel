@@ -17,7 +17,8 @@ function recordUsage(userId: string, response: AIResponse, action: string): void
   }).catch((err) => logger.warn('Failed to record token usage', { err }));
 }
 
-const MAX_HISTORY = 20;
+const MAX_HISTORY = 20;       // messages retained in DB per channel
+const CONTEXT_MESSAGES = 6;   // messages sent to the AI (last N of stored history)
 const MAX_TOOL_ITERATIONS = 10;
 const THINKING_THRESHOLD_MS = 5000;
 
@@ -95,11 +96,14 @@ export function registerMessageHandler(app: App) {
         timestamp: new Date(),
       });
 
-      // Build messages for the AI provider
-      const messages: AIMessage[] = channelContext.conversationHistory.map((msg) => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content,
-      }));
+      // Build messages for the AI provider — only the last CONTEXT_MESSAGES entries
+      // to cap input token usage. Full history is still persisted up to MAX_HISTORY.
+      const messages: AIMessage[] = channelContext.conversationHistory
+        .slice(-CONTEXT_MESSAGES)
+        .map((msg) => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+        }));
 
       const provider = createAIProvider();
       const tools = getToolDefinitions() as AIToolDefinition[];
