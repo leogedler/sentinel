@@ -1,11 +1,24 @@
 import { App } from '@slack/bolt';
-import { User, Client, ChannelContext } from '../../shared/db/models';
+import { User, Client, ChannelContext, TokenUsage } from '../../shared/db/models';
 import { getToolDefinitions, executeToolCall } from '../../mcp/server';
 import { logger } from '../../shared/utils/logger';
-import { createAIProvider, AIMessage, AITextPart, AIToolUsePart, AIToolResultPart, AIToolDefinition } from '../../shared/ai';
+import { createAIProvider, AIMessage, AITextPart, AIToolUsePart, AIToolResultPart, AIToolDefinition, AIResponse } from '../../shared/ai';
 import { PermissionDeniedError } from '../../mcp/tools/admin.tool';
 
-const MAX_HISTORY = 20;
+function recordUsage(userId: string, response: AIResponse, action: string): void {
+  TokenUsage.create({
+    userId,
+    provider: response.provider,
+    aiModel: response.model,
+    inputTokens: response.usage.inputTokens,
+    outputTokens: response.usage.outputTokens,
+    totalTokens: response.usage.inputTokens + response.usage.outputTokens,
+    action,
+  }).catch((err) => logger.warn('Failed to record token usage', { err }));
+}
+
+const MAX_HISTORY = 20;       // messages retained in DB per channel
+const CONTEXT_MESSAGES = 6;   // messages sent to the AI (last N of stored history)
 const MAX_TOOL_ITERATIONS = 10;
 const THINKING_THRESHOLD_MS = 5000;
 
@@ -83,11 +96,14 @@ export function registerMessageHandler(app: App) {
         timestamp: new Date(),
       });
 
-      // Build messages for the AI provider
-      const messages: AIMessage[] = channelContext.conversationHistory.map((msg) => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content,
-      }));
+      // Build messages for the AI provider — only the last CONTEXT_MESSAGES entries
+      // to cap input token usage. Full history is still persisted up to MAX_HISTORY.
+      const messages: AIMessage[] = channelContext.conversationHistory
+        .slice(-CONTEXT_MESSAGES)
+        .map((msg) => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+        }));
 
       const provider = createAIProvider();
       const tools = getToolDefinitions() as AIToolDefinition[];
@@ -129,6 +145,7 @@ export function registerMessageHandler(app: App) {
         tools: activeTools,
         max_tokens: 2048,
       });
+      recordUsage(String(sentinelUser._id), response, 'slack_message');
 
       // Tool call loop
       let iterations = 0;
@@ -183,6 +200,7 @@ export function registerMessageHandler(app: App) {
           tools: activeTools,
           max_tokens: 2048,
         });
+        recordUsage(String(sentinelUser._id), response, 'slack_message');
       }
 
       // Extract final text response

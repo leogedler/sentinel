@@ -69,7 +69,13 @@ export class AnthropicProvider implements AIProvider {
       return [];
     });
 
-    return { content, stop_reason: response.stop_reason ?? 'end_turn' };
+    return {
+      content,
+      stop_reason: response.stop_reason ?? 'end_turn',
+      usage: { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens },
+      model: this.model,
+      provider: 'anthropic',
+    };
   }
 
   private async createWithRetry(

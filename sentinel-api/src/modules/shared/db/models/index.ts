@@ -6,3 +6,4 @@ export { Skill, ISkill, ISkillParameter } from './skill.model';
 export { Schedule, ISchedule } from './schedule.model';
 export { Report, IReport } from './report.model';
 export { ChannelContext, IChannelContext, IConversationMessage } from './channel-context.model';
+export { TokenUsage, ITokenUsage } from './token-usage.model';
